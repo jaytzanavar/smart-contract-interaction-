@@ -1,0 +1,7 @@
+.metamask-btn {
+  width: 135px;
+  overflow: hidden;
+  white-space: nowrap;
+  display: block;
+  text-overflow: ellipsis;
+}
