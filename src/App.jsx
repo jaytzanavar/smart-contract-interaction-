@@ -1,43 +1,26 @@
 import "./App.css";
-import { Web3ReactProvider, useWeb3React } from "@web3-react/core";
-import { InjectedConnector } from "@web3-react/injected-connector";
 import { ethers } from "ethers";
 import BUSD from "./contracts/BUSD.json";
-import { Web3Provider } from "@ethersproject/providers";
-import { formatEther } from "@ethersproject/units";
 import { useEffect, useState, useRef } from "react";
 import Container from "react-bootstrap/Container";
 import Form from "react-bootstrap/Form";
 import Navbar from "react-bootstrap/Navbar";
 import Nav from "react-bootstrap/Nav";
+import Overlay from "react-bootstrap/Overlay";
+import Tooltip from "react-bootstrap/Tooltip";
 import Button from "react-bootstrap/Button";
 import Table from "react-bootstrap/Table";
 import Card from "react-bootstrap/Card";
 import ChangeChainModal from "./components/ChangeChainModal/ChangeChainModal.jsx";
 import { useFormik, Formik } from "formik";
-import { chainNetworks } from "./assets/utils";
+import { chainNames, chainNetworks } from "./assets/utils";
+import Mint from "./components/Mint/Mint";
+import Ownership from "./components/Ownership/Ownership";
+import { WalletTable } from "./components/WalletTable/WalletTable";
 
-// const abi = contract.abi;
 export default function DappWrapper() {
-  return (
-    <Web3ReactProvider getLibrary={(provider) => new Web3Provider(provider)}>
-      <App />
-    </Web3ReactProvider>
-  );
+  return <App />;
 }
-
-export const injectedConnectors = new InjectedConnector({
-  supportedChainIds: [
-    chainNetworks.MainNet, // Mainet
-    chainNetworks.Ropsten, // Ropsten
-    chainNetworks.Rinkeby, // Rinkeby
-    chainNetworks.Goerli, // Goerli
-    chainNetworks.Kovan, // Kovan,
-    chainNetworks.SmartChain, // SmartChain
-    chainNetworks.Polygon, // Polygon
-    chainNetworks.Mumbai, // Polygon Test Net
-  ],
-});
 
 export const TOKENS_BY_NETWORK = {
   [chainNetworks.MainNet]: [
@@ -104,63 +87,119 @@ export const TOKENS_BY_NETWORK = {
   ],
 };
 
-// function to get balance for wallet
-function useBalance() {
-  const { account, library } = useWeb3React(); // what was passed to the provider <Web3ReactProvider ==> Web3Provider from ethers
-  const [balance, setBalance] = useState();
-
-  useEffect(() => {
-    if (account) {
-      // we are active
-      library.getBalance(account).then((val) => setBalance(val)); // promice to get balance
-    }
-  }, [account, library]);
-  return balance ? formatEther(balance) : null;
+// function to get balance
+async function getBalance(provider, address) {
+  let balance = await provider.getBalance(address);
+  return (balance = ethers.utils.formatEther(balance));
 }
 
-// function to update the block number
-function useBlockNumber() {
-  const { library } = useWeb3React();
-  const [blockNumber, setBlockNumber] = useState();
-
-  useEffect(() => {
-    if (library) {
-      const updateBlockNumber = (val) => setBlockNumber(val);
-      library.on("block", updateBlockNumber);
-      // return () => {
-      //   library.removeEventListener("block", updateBlockNumber);
-      // };
-    }
-  }, [library]);
-  //   console.log("use effect block number");
-  return blockNumber;
-}
-
-// function to perform network or chain change
-function useNetworkChange() {
-  const networkChanged = (chainId) => {
-    console.log({ chainId });
-  };
-  useEffect(() => {
-    window.ethereum.on("chainChanged", networkChanged);
-
-    return () => {
-      window.ethereum.removeListener("chainChanged", networkChanged);
-    };
-  }, []);
+async function getChainInfo(provider) {
+  const chainInfo = await provider.getNetwork();
+  return chainInfo;
 }
 
 function App() {
-  const { active, account, activate, deactivate, chainId } = useWeb3React(); // active false / no account initial state / function we call connect metamask
-  const balance = useBalance();
-  const mainProvider = new ethers.providers.Web3Provider(window.ethereum);
+  console.log("app starting...");
+  // clipboard overlay
+  const target = useRef(null);
+  const [showClipboard, setShowClipboard] = useState(false);
+  const [active, setActive] = useState(null);
+  const [account, setAccount] = useState(null);
+  const [provider, setProvider] = useState(null);
+  const [signer, setSigner] = useState(null);
   const [contractInfo, setContractInfo] = useState([]);
-  // maintain the state of connected if user hasn't disconnected
+  const [contractAddr, setContractAddr] = useState([]);
+  const [contract, setContract] = useState(null);
+
+  const [transferHash, setTransferHash] = useState(null);
+  const [refreshId, setRefreshId] = useState(0);
+
+  // TODO check with metamask ethereum etc
+  const { ethereum } = window;
+
+  const [chain, setChain] = useState(() => {
+    return {
+      chainId: 0,
+      ensAddress: "",
+      name: "",
+      balance: 0,
+      currentBlock: "",
+    };
+  });
+
+  let balanceBigN = async (account) => {
+    new ethers.providers.Web3Provider(ethereum).getNetwork().then((chain) => {
+      new ethers.providers.Web3Provider(ethereum)
+        .getBalance(account)
+        .then((bal) => {
+          new ethers.providers.Web3Provider(ethereum)
+            .getBlockNumber()
+            .then((block) => {
+              setChain({
+                balance: ethers.utils.formatUnits(bal),
+                chainId: chain.chainId,
+                ensAddress: chain.ensAddress,
+                name: chain.name,
+                currentBlock: block,
+              });
+            });
+        });
+      console.log(chain);
+    });
+  };
+
+  const requestAccountConnection = () => {
+    console.log("Requesting acc...", ethereum);
+    if (ethereum) {
+      try {
+        ethereum.request({ method: "eth_requestAccounts" }).then((res) => {
+          accountChangeHandler(res[0]);
+          balanceBigN(res[0]);
+          setActive(true);
+          if (localStorage.getItem("contract") !== null) {
+            const setTempContract = localStorage.getItem("contract");
+            setContractAddr(setTempContract);
+            getContractAndBalanceInfo(setTempContract);
+          }
+        });
+      } catch {}
+    } else {
+      console.log("Metamask Not detected");
+      setActive(false);
+    }
+  };
+
+  const accountChangeHandler = (newAccount) => {
+    setAccount(newAccount);
+  };
+
+  const updateEthers = (addr) => {
+    let tempProvider = new ethers.providers.Web3Provider(window.ethereum);
+    setProvider(tempProvider);
+
+    let tempSigner = tempProvider.getSigner();
+    setSigner(tempSigner);
+
+    let tempContract = new ethers.Contract(addr, BUSD.abi, tempSigner);
+    setContract(tempContract);
+  };
+
+  async function BurnTokens(data) {
+    // TODO get balance and block the burn
+    await contract.burn(ethers.utils.parseEther(data.amount)).then((res) => {
+      const txHash = res.hash;
+      console.log(txHash);
+      setTransferHash({ burn: txHash });
+    });
+  }
+
+  // keep user connected
   useEffect(() => {
     const connectWalletOnPageLoad = async () => {
+      console.log("Use connectWalletOnPageLoad triggered");
       if (localStorage?.getItem("metamask-userConnected") === "true") {
         try {
-          await activate(injectedConnectors);
+          await requestAccountConnection();
         } catch (ex) {
           console.log(ex);
         }
@@ -169,67 +208,72 @@ function App() {
     connectWalletOnPageLoad();
   }, []);
 
-  async function disconnect() {
+  async function disconnectAccount() {
     try {
-      await deactivate();
+      setAccount(null);
+      setActive(false);
+      setContract(null);
+      localStorage.removeItem("contract");
       localStorage.removeItem("metamask-userConnected");
+
+      refreshData(true);
     } catch (ex) {
       console.error(ex);
     }
   }
 
-  const currentNetwork = useNetworkChange();
-  const target = useRef(null);
-
-  const blockNumber = useBlockNumber();
-  const chainNames = [
-    { id: 1, name: "Eth Mainnet" },
-    { id: 56, name: "Smart Chain" },
-    { id: 137, name: "Polygon" },
-    { id: 80001, name: "Polygon Testnet(Mumbai)" },
-  ];
-
   let erc20Contract;
 
   // on utilise Mumbai testnet 80001 / 0x15A40d37e6f8A478DdE2cB18c83280D472B2fC35 BUSD token
   async function getContractAndBalanceInfo(erc20Address) {
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
-    erc20Contract = new ethers.Contract(erc20Address, BUSD.abi, provider);
+    console.log(erc20Address);
+    console.log(` ${erc20Address} GET CONTRACT AND BALANCE`);
+    if (erc20Address) {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      erc20Contract = new ethers.Contract(erc20Address, BUSD.abi, provider);
 
-    const tokenName = await erc20Contract.name();
-    const tokenSymbol = await erc20Contract.symbol();
-    const totalSupply = formatEther(await erc20Contract.totalSupply());
+      const tokenName = await erc20Contract.name();
+      const tokenSymbol = await erc20Contract.symbol();
+      const totalSupply = ethers.utils.formatEther(
+        await erc20Contract.totalSupply()
+      );
 
-    // await provider;
-    const signer = await provider.getSigner(); //jsonRpc
-    const signerAddress = await signer.getAddress();
+      // await provider;
+      const signer = await provider.getSigner(); //jsonRpc
+      const signerAddress = await signer.getAddress();
 
-    const balance = formatEther(await erc20Contract.balanceOf(signerAddress));
-    const allowance = await erc20Contract.allowance(
-      erc20Address,
-      signerAddress
-    );
+      const balance = ethers.utils.formatEther(
+        await erc20Contract.balanceOf(signerAddress)
+      );
+      const allowance = await erc20Contract.allowance(
+        erc20Address,
+        signerAddress
+      );
 
-    const newContractInfos = [...contractInfo];
-    console.log(contractInfo);
-    newContractInfos.push({
-      contractAddress: erc20Address,
-      tokenName,
-      tokenSymbol,
-      totalSupply: totalSupply,
-      accountAddress: signerAddress,
-      balance: balance,
-      allowance: ethers.utils.formatEther(allowance) > 0,
-    });
-    console.log(newContractInfos);
-    setContractInfo(newContractInfos);
+      //  const newContractInfos = [...contractInfo];
+      const newContractInfos = [];
+      setContractInfo(newContractInfos); // for refesh reasons
+      console.log(contractInfo);
+      newContractInfos.push({
+        contractAddress: erc20Address,
+        tokenName,
+        tokenSymbol,
+        totalSupply: totalSupply,
+        accountAddress: signerAddress,
+        balance: balance,
+        allowance: ethers.utils.formatEther(allowance) > 0,
+      });
+      console.log(newContractInfos);
+      setContractInfo(newContractInfos);
+      updateEthers(erc20Address);
+    }
   }
 
   //check allowance of spender
   async function setGrantApproval(data) {
-    await mainProvider.send("eth_requestAccounts", []);
-    const signer = await mainProvider.getSigner();
+    await provider.send("eth_requestAccounts", []);
+    const signer = await provider.getSigner();
     const getSignerAddr = signer.getAddress();
     const contract = new ethers.Contract(
       contractInfo[0].accountAddress,
@@ -237,57 +281,48 @@ function App() {
       signer
     );
 
-    console.log(contractInfo[0]);
-    console.log(data.valueToApprove);
     const grantApproval = await contract.approve(
       getSignerAddr,
       data.valueToApprove
     );
 
-    console.log(grantApproval);
     // return parseInt(checkAllowance, 10) > 0;
   }
 
   // addr to send 0x9B678D348821d48D77a586DAbd1B5C394B4cA5f8
-  const [transferHash, setTransferHash] = useState("");
   async function sendAmountToAddress(data) {
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     await provider.send("eth_requestAccounts", []);
     const signer = await provider.getSigner();
-    // const maticAddr = contractInfo.find(
-    //   (info) =>
-    //     info.contractAddress === "0x0000000000000000000000000000000000001010"
-    // );
+    const tx = {
+      to: data.recipientAddress,
+      value: ethers.utils.parseEther(data.amountOfTransfer),
+    };
 
-    const contract = new ethers.Contract(
-      "0x15A40d37e6f8A478DdE2cB18c83280D472B2fC35",
-      BUSD.abi,
-      signer
-    );
-
-    // contract.methods.console.log(
-    //   `sending ${data.amountOfTransfer} to ${data.recipientAddress} `
-    // );
-    const txt = await contract.transfer(
-      data.recipientAddress,
-      ethers.utils.parseUnits(data.amountOfTransfer)
-    );
-    setTransferHash(txt.hash);
+    signer.sendTransaction(tx).then((res) => {
+      setTransferHash({ sendTodAddr: res.hash });
+    });
   }
 
-  async function checkIfOwner() {
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
+  async function sendTransferFromTo({ from, to, amount }) {
     await provider.send("eth_requestAccounts", []);
     const signer = await provider.getSigner();
     const contract = new ethers.Contract(
-      "0x15A40d37e6f8A478DdE2cB18c83280D472B2fC35",
+      contractInfo[0].accountAddress,
       BUSD.abi,
       signer
     );
-    const isOwner = await contract.getOwner().then((res) => {
-      console.log(res);
-      return res;
-    });
+    let weiAmount = amount === 0 ? 0 : ethers.utils.formatEther(amount);
+
+    console.log(weiAmount);
+    try {
+      await contract.transferFrom(from, to, weiAmount).then((res) => {
+        console.log(res);
+        setTransferHash({ sendTransferFrom: res.hash });
+      });
+    } catch (er) {
+      console.error(er);
+    }
   }
 
   const formik = useFormik({
@@ -295,14 +330,31 @@ function App() {
       erc20ContractAddress: "",
     },
     onSubmit: async (values) => {
+      setContractAddr(values.erc20ContractAddress);
       getContractAndBalanceInfo(values.erc20ContractAddress);
     },
   });
 
+  function autoRefresh() {
+    setInterval(() => {
+      refreshData();
+    }, 60000);
+  }
+  function refreshData(disconnect = false) {
+    if (contractAddr && !disconnect) {
+      localStorage.setItem("contract", contractAddr);
+      window.location.reload();
+    }
+  }
+
+  // if (active) {
+  //   autoRefresh();
+  // }
+
   return (
     <>
       <header>
-        <Navbar bg="light" expand="lg">
+        <Navbar className="fixed-refresh-icon" bg="light" expand="lg">
           <Container>
             <Navbar.Brand>Smart Contract App </Navbar.Brand>
             {active ? (
@@ -315,23 +367,54 @@ function App() {
             <Form>
               {active ? (
                 <div className="d-flex  gap-3 justify-content-around ">
-                  <Button className="metamask-btn " variant="outline-secondary">
-                    Account {account}
-                  </Button>
-
+                  <>
+                    <Button
+                      onClick={() => {
+                        setShowClipboard(true);
+                        navigator.clipboard.writeText(account);
+                        setTimeout(() => {
+                          setShowClipboard(false);
+                        }, 1200);
+                      }}
+                      className="metamask-btn "
+                      variant="outline-secondary"
+                      ref={target}
+                    >
+                      Account {account}
+                    </Button>
+                    <Overlay
+                      key="bottom"
+                      placement="bottom"
+                      target={target.current}
+                      show={showClipboard}
+                    >
+                      <Tooltip id="tooltip-bottom">
+                        Wallet address copied to clipboard
+                      </Tooltip>
+                    </Overlay>
+                  </>
                   <Button
+                    onClick={() => {
+                      disconnectAccount();
+                    }}
                     variant="outline-warning"
-                    onClick={() => disconnect()}
                   >
                     Disconnect
                   </Button>
+                  <button
+                    onClick={() => refreshData()}
+                    type="button"
+                    className="btn btn-outline-info"
+                  >
+                    <span className="reload">&#x21bb;</span>
+                  </button>
                 </div>
               ) : (
                 <div>
                   <Button
                     variant="primary"
                     onClick={() => {
-                      activate(injectedConnectors);
+                      requestAccountConnection();
                       localStorage.setItem("metamask-userConnected", "true");
                     }}
                   >
@@ -343,7 +426,7 @@ function App() {
           </Container>
         </Navbar>
       </header>
-      <main>
+      <main className="main-screen-position">
         {active ? (
           <div>
             <div className="container">
@@ -351,38 +434,7 @@ function App() {
             </div>
             <Card className="container mb-4">
               <Card.Body>
-                <Table striped bordered hover>
-                  <thead>
-                    <tr>
-                      <th>ChainId</th>
-                      <th>Block Number</th>
-                      <th>Chain Name</th>
-                      <th>Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {chainId != null ? (
-                      <tr>
-                        <td>{chainId}</td>
-                        <td>{blockNumber}</td>
-                        <td>
-                          {chainNames.find((chain) => {
-                            return chain.id === chainId;
-                          }).name ?? "Not supported chain"}
-                        </td>
-                        <td>{balance}</td>
-                      </tr>
-                    ) : (
-                      <tr>
-                        <td>0</td>
-                        <td>#</td>
-                        <td>Empty</td>
-                        <td>Empty</td>
-                      </tr>
-                    )}
-                    <tr></tr>
-                  </tbody>
-                </Table>
+                <WalletTable chain={chain} account={account} />
               </Card.Body>
             </Card>
             <Card className="container mb-4">
@@ -451,83 +503,96 @@ function App() {
                 </Table>
               </Card.Body>
             </Card>
-            <Card className="container">
-              <Card.Body>
-                <h4>Smart Contract interactions</h4>
-                <div className="container">
-                  <Formik
-                    initialValues={{
-                      recipientAddress: "",
-                      amountOfTransfer: 0,
-                    }}
-                    className="d-flex flex-column  justify-content-md-between"
-                    onSubmit={(data, { setSubmitting }) => {
-                      setSubmitting(true);
-                      // send data to the contract
+            <Card className="container mb-4">
+              {
+                <Card.Body>
+                  <h4>Transfer Token to Account</h4>
+                  <div className="container">
+                    <Formik
+                      initialValues={{
+                        recipientAddress: "",
+                        amountOfTransfer: 0,
+                      }}
+                      className="d-flex flex-column  justify-content-md-between"
+                      onSubmit={(data, { setSubmitting }) => {
+                        setSubmitting(true);
+                        // send data to the contract
 
-                      sendAmountToAddress(data);
-                      setSubmitting(false);
-                    }}
-                  >
-                    {({
-                      values,
-                      isSubmitting,
-                      handleChange,
-                      handleBlur,
-                      handleSubmit,
-                    }) => (
-                      <form onSubmit={handleSubmit}>
-                        <div className="row">
-                          <Form.Label className="mt-2 mb-2 h4">
-                            Send tokens
-                          </Form.Label>
-                        </div>
-                        <div className="row">
-                          <div className="col-6">
-                            <Form.Control
-                              type="text"
-                              id="recipientAddress"
-                              name="recipientAddress"
-                              onChange={handleChange}
-                              onBlur={handleBlur}
-                              placeholder="Recipient address"
-                              value={values.recipientAddress}
-                            />
+                        sendAmountToAddress(data);
+                        setSubmitting(false);
+                      }}
+                    >
+                      {({
+                        values,
+                        isSubmitting,
+                        handleChange,
+                        handleBlur,
+                        handleSubmit,
+                      }) => (
+                        <form onSubmit={handleSubmit}>
+                          <div className="row">
+                            <Form.Label className="mt-2 mb-2 h4">
+                              Send tokens
+                            </Form.Label>
                           </div>
-                          <div className="col-6">
-                            <Form.Control
-                              type="text"
-                              id="amountOfTransfer"
-                              name="amountOfTransfer"
-                              onChange={handleChange}
-                              onBlur={handleBlur}
-                              placeholder="amount of tokens"
-                              value={values.amountOfTransfer}
-                            />
-                          </div>
-                        </div>
-                        <div className="row">
-                          <div className="col-6">
-                            <Button
-                              disabled={contractInfo.length === 0}
-                              className="mt-2 mb-2 align-self-center col-md-4"
-                              variant="primary"
-                              type="submit"
-                            >
-                              Send
-                            </Button>
-                          </div>
-                          <div className="col-6 pt-2">
-                            <div className="h6">
-                              Transaction hash:{transferHash}
+                          <div className="row">
+                            <div className="col-6">
+                              <Form.Control
+                                type="text"
+                                id="recipientAddress"
+                                name="recipientAddress"
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                placeholder="@Recipient address"
+                                value={values.recipientAddress}
+                              />
+                            </div>
+                            <div className="col-6">
+                              <Form.Control
+                                type="text"
+                                id="amountOfTransfer"
+                                name="amountOfTransfer"
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                placeholder="amount of tokens"
+                                value={values.amountOfTransfer}
+                              />
                             </div>
                           </div>
-                        </div>
-                      </form>
-                    )}
-                  </Formik>
-                </div>
-
+                          <div className="row">
+                            <div className="col-6">
+                              <Button
+                                disabled={
+                                  values.recipientAddress.length === 0 &&
+                                  values.amountOfTransfer === 0
+                                }
+                                className="mt-2 mb-2 align-self-center col-md-4"
+                                variant="primary"
+                                type="submit"
+                              >
+                                Send
+                              </Button>
+                            </div>
+                            <div className="col-6 pt-2">
+                              <div className="h6">
+                                Transaction:{" "}
+                                {transferHash !== null ??
+                                  transferHash["sendTodAddr"] ??
+                                  null}
+                              </div>
+                            </div>
+                          </div>
+                        </form>
+                      )}
+                    </Formik>
+                  </div>
+                </Card.Body>
+              }
+            </Card>
+            <Card className="container mb-4">
+              <Card.Body>
+                <h4>Smart Contract interactions</h4>
+                {/*START Approve spending Tokens */}
                 <div className="container">
                   <div className="row">
                     <Formik
@@ -555,7 +620,7 @@ function App() {
                             </Form.Label>
                           </div>
                           <div className="row">
-                            <div className="col-6">
+                            <div className="col-5">
                               <Form.Control
                                 type="text"
                                 id="valueToApprove"
@@ -584,6 +649,178 @@ function App() {
                     </Formik>
                   </div>
                 </div>
+                {/*END Approve spending Tokens */}
+
+                {/*START Transfer from */}
+                <div className="container">
+                  <div className="row">
+                    <Formik
+                      initialValues={{ from: "", to: "", amount: 0 }}
+                      className="d-flex flex-column  justify-content-md-between"
+                      onSubmit={(data, { setSubmitting }) => {
+                        setSubmitting(true);
+                        // send data to the contract
+
+                        sendTransferFromTo(data);
+                        setSubmitting(false);
+                      }}
+                    >
+                      {({
+                        values,
+                        isSubmitting,
+                        handleChange,
+                        handleBlur,
+                        handleSubmit,
+                      }) => (
+                        <form onSubmit={handleSubmit}>
+                          <div className="row">
+                            <Form.Label className="mt-2 mb-2 h4">
+                              Transfer{" "}
+                              {contractInfo.length > 0
+                                ? contractInfo[0].tokenSymbol
+                                : ""}{" "}
+                              Tokens From <span>&#8594;</span> To
+                            </Form.Label>
+                          </div>
+                          <div className="row">
+                            <div className="col-5">
+                              <Form.Control
+                                type="text"
+                                id="from"
+                                name="from"
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                placeholder="@Address From"
+                                value={values.from}
+                              />
+                            </div>
+                            <div className="col-5">
+                              <Form.Control
+                                type="text"
+                                id="to"
+                                name="to"
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                placeholder="@Address Recipient"
+                                value={values.to}
+                              />
+                            </div>
+                            <div className="col-2">
+                              <Form.Control
+                                type="text"
+                                id="amount"
+                                name="amount"
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                placeholder="Amount of Tokens"
+                                value={values.amount}
+                              />
+                            </div>
+                          </div>
+                          <div className="row">
+                            <div className="col-6">
+                              <Button
+                                disabled={contractInfo.length === 0}
+                                className="mt-2 mb-2 align-self-center col-md-4"
+                                variant="primary"
+                                type="submit"
+                              >
+                                Send Tokens
+                              </Button>
+                            </div>
+                            <div className="col-6 pt-2">
+                              <div className="h6">
+                                Transaction:{" "}
+                                {transferHash !== null ??
+                                  transferHash["sendTransferFrom"] ??
+                                  null}
+                              </div>
+                            </div>
+                          </div>
+                        </form>
+                      )}
+                    </Formik>
+                  </div>
+                </div>
+                {/*END Transfer from*/}
+
+                {/*START Burn  */}
+                <div className="container">
+                  <div className="row">
+                    <Formik
+                      initialValues={{ amount: 0 }}
+                      className="d-flex flex-column  justify-content-md-between"
+                      onSubmit={(data, { setSubmitting }) => {
+                        setSubmitting(true);
+                        // send data to the contract
+
+                        BurnTokens(data);
+                        setSubmitting(false);
+                      }}
+                    >
+                      {({
+                        values,
+                        isSubmitting,
+                        handleChange,
+                        handleBlur,
+                        handleSubmit,
+                      }) => (
+                        <form onSubmit={handleSubmit}>
+                          <div className="row">
+                            <Form.Label className="mt-2 mb-2 h4">
+                              Burn
+                              {contractInfo.length > 0
+                                ? `  ${contractInfo[0].tokenSymbol}`
+                                : ""}{" "}
+                              Tokens
+                            </Form.Label>
+                          </div>
+                          <div className="row">
+                            <div className="col-5">
+                              <Form.Control
+                                type="text"
+                                id="amount"
+                                name="amount"
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                placeholder="Token amount to burn"
+                                value={values.amount}
+                              />
+                            </div>
+                          </div>
+                          <div className="row">
+                            <div className="col-6">
+                              <Button
+                                disabled={contractInfo.length === 0}
+                                className="mt-2 mb-2 align-self-center col-md-4"
+                                variant="primary"
+                                type="submit"
+                              >
+                                Burn
+                              </Button>
+                            </div>
+                            <div className="col-6 pt-2">
+                              <div className="h6">
+                                Transaction{" "}
+                                {transferHash !== null ??
+                                  transferHash["burn"] ??
+                                  null}
+                              </div>
+                            </div>
+                          </div>
+                        </form>
+                      )}
+                    </Formik>
+                  </div>
+                </div>
+                {/*END Burn*/}
+                {/* START Mint */}
+                <Mint
+                  provider={provider}
+                  contract={contract}
+                  contractInfo={contractInfo}
+                />
+                <Ownership signerAsync={signer} contract={contract} />
               </Card.Body>
             </Card>
           </div>
@@ -592,13 +829,5 @@ function App() {
         )}
       </main>
     </>
-    // <Web3Provider
-    //   connectors={connectors}
-    //   libraryName={"ethers.js" | "web3.js" | null}
-    // >
-    //   <div className="container">
-    //     <h1>Access wallet</h1>
-    //   </div>
-    // </Web3Provider>
   );
 }

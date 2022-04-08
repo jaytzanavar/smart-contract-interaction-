@@ -31,3 +31,17 @@
   width: 245px;
   max-height: 100px;
 }
+
+.fixed-refresh-icon {
+  position: fixed;
+  width: 100vw;
+  z-index: 9999;
+}
+
+.reload {
+  font-family: Lucida Sans Unicode;
+}
+
+.main-screen-position {
+  padding-top: 7%;
+}

@@ -35,6 +35,17 @@ export const networks = {
     ],
     blockExplorerUrls: ["https://bscscan.com"],
   },
+  mumbai: {
+    chainId: `0x${Number(80001).toString(16)}`,
+    chainName: "Mumbai Testnet",
+    nativeCurrency: {
+      name: "MATIC",
+      symbol: "MATIC",
+      decimals: 18,
+    },
+    rpcUrls: ["https://rpc-mumbai.maticvigil.com/"],
+    blockExplorerUrls: ["https://mumbai.polygonscan.com/"],
+  },
 };
 
 export const chainNetworks = {
@@ -47,3 +58,10 @@ export const chainNetworks = {
   Polygon: 137,
   Mumbai: 80001,
 };
+
+export const chainNames = [
+  { id: 1, name: "Eth Mainnet" },
+  { id: 56, name: "Smart Chain" },
+  { id: 137, name: "Polygon" },
+  { id: 80001, name: "Polygon Testnet(Mumbai)" },
+];

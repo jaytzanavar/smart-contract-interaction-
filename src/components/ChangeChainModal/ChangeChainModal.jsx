@@ -22,6 +22,7 @@ export default function ChangeChainModal() {
           params: [{ chainId: "0x1" }],
         });
       } else {
+        console.log(networkName);
         await window.ethereum.request({
           method: "wallet_addEthereumChain",
           params: [
@@ -81,6 +82,15 @@ export default function ChangeChainModal() {
                 >
                   <img className="button-matic" src={MaticImg} alt="" />
                   <span>Polygon</span>
+                </button>
+              </div>
+              <div className="d-flex justify-content-center">
+                <button
+                  onClick={() => handleNetworkSwitch("mumbai")}
+                  className="button-change-blockchain d-flex justify-content-center"
+                >
+                  <img className="button-matic" src={MaticImg} alt="" />
+                  <span>Mumbai(TestNet)</span>
                 </button>
               </div>
             </div>
