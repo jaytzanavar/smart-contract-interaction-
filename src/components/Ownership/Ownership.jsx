@@ -4,27 +4,24 @@ import { Formik } from "formik";
 import { useState } from "react";
 
 export function Ownership({ contract, signerAsync }) {
-  const [isOwner, setIsOwner] = useState(false);
+  const [isOwner, setIsOwner] = useState(null);
   const [contractOwner, setContractOwner] = useState(null);
   const [signer, setSigner] = useState(null);
   const [transferHash, setTransferHash] = useState(null);
   async function checkIfOwner() {
     await contract.getOwner().then(async (res) => {
       const signerAdd = await signerAsync.getAddress();
-      console.log(signerAdd);
-      console.log(res);
+
       setSigner(signerAdd);
       setContractOwner(res);
-      console.log(res === signerAdd);
+
       const isSignerOwner = res === signerAdd;
       setIsOwner(isSignerOwner);
-      console.log(isOwner);
     });
   }
 
   async function renounceContract() {
     const renounceContract = await contract.renounceOwnership().then((res) => {
-      console.log(res);
       checkIfOwner();
     });
   }
@@ -59,8 +56,10 @@ export function Ownership({ contract, signerAsync }) {
                 </div>
                 <div className="row">
                   <div className="col-10">
-                    {isOwner !== false
+                    {isOwner !== false && isOwner !== null
                       ? "yeap !"
+                      : isOwner === null
+                      ? ``
                       : `nope ${contractOwner} is the owner`}
                   </div>
                 </div>
@@ -70,8 +69,9 @@ export function Ownership({ contract, signerAsync }) {
                       className="mt-2 mb-2 align-self-center col-md-4"
                       variant="primary"
                       type="submit"
+                      disabled={contract === null}
                     >
-                      Mint
+                      Check Ownership
                     </Button>
                   </div>
                   <div className="col-6 pt-2">

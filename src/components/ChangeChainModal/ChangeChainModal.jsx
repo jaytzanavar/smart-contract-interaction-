@@ -22,7 +22,6 @@ export default function ChangeChainModal() {
           params: [{ chainId: "0x1" }],
         });
       } else {
-        console.log(networkName);
         await window.ethereum.request({
           method: "wallet_addEthereumChain",
           params: [
