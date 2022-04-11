@@ -3,15 +3,42 @@ import Button from "react-bootstrap/Button";
 import { Formik } from "formik";
 import { ethers } from "ethers";
 import { useState } from "react";
+import { ResultToaster } from "../ResultToaster/ResultToaster.jsx";
 
-export function Mint({ contract, provider, contractInfo }) {
+export function Mint({ contract, provider, contractInfo, refresh }) {
   const [transferHash, setTransferHash] = useState(null);
+  const [toastData, setToasterData] = useState({
+    show: false,
+    result: "",
+    variant: "",
+  });
   const MintTokens = async (data) => {
-    await contract.mint(ethers.utils.parseEther(data.amount)).then((res) => {
-      console.log(res);
-      setTransferHash(res.hash);
-      console.log(transferHash);
-    });
+    await contract
+      .mint(ethers.utils.parseEther(data.amount))
+      .then(async (res) => {
+        setToasterData({
+          show: true,
+          result: "Minting token Pending... ",
+          variant: "Warning",
+        });
+        setTransferHash(res.hash);
+
+        await res.wait().then((res) => {});
+        setToasterData({
+          show: true,
+          result: "Send transfer successful",
+          variant: "Success",
+        });
+        setTimeout(async () => {
+          setToasterData({
+            ...toastData,
+            show: false,
+          });
+        }, 2500);
+        setTimeout(() => {
+          refresh();
+        }, 1000);
+      });
   };
 
   return (
@@ -71,18 +98,18 @@ export function Mint({ contract, provider, contractInfo }) {
                       Mint
                     </Button>
                   </div>
-                  <div className="col-6 pt-2">
-                    <div className="h6">
-                      Transaction:
-                      {transferHash !== null ?? transferHash["mint"] ?? null}
-                    </div>
-                  </div>
                 </div>
               </form>
             )}
           </Formik>
         </div>
       </div>
+      <ResultToaster
+        result={toastData.result}
+        show={toastData.show}
+        variant={toastData.variant}
+        setData={setToasterData}
+      />
     </>
   );
 }

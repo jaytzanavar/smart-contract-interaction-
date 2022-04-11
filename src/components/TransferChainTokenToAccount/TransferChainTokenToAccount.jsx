@@ -100,12 +100,6 @@ export function TransferChainTokenToAccount({ ethers, utils }) {
                         Send
                       </Button>
                     </div>
-                    <div className="col-6 pt-2">
-                      <div className="h6">
-                        Transaction:{" "}
-                        {transferHash.length > 0 ? transferHash : null}
-                      </div>
-                    </div>
                   </div>
                 </form>
               )}

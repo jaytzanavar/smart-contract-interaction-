@@ -74,12 +74,6 @@ export function Ownership({ contract, signerAsync }) {
                       Check Ownership
                     </Button>
                   </div>
-                  <div className="col-6 pt-2">
-                    <div className="h6">
-                      Transaction
-                      {transferHash !== null ?? transferHash["mint"] ?? null}
-                    </div>
-                  </div>
                 </div>
               </form>
             )}

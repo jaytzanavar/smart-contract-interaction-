@@ -17,6 +17,7 @@ import { chainNetworks } from "./assets/utils";
 import { WalletTable } from "./components/WalletTable/WalletTable";
 import TransferChainTokenToAccount from "./components/TransferChainTokenToAccount/TransferChainTokenToAccount";
 import SmartContractInteractions from "./components/SmartContractInteractions/SmartContractInteractions";
+import { ResultToaster } from "./components/ResultToaster/ResultToaster.jsx";
 
 export default function DappWrapper() {
   return <App />;
@@ -88,6 +89,13 @@ export const TOKENS_BY_NETWORK = {
 };
 
 function App() {
+  window.ethereum.on("accountsChanged", function (accounts) {
+    // Time to reload your interface with accounts[0]
+    if (account != null) {
+      window.location.reload();
+    }
+  });
+
   console.log("app starting...");
   // clipboard overlay
   const target = useRef(null);
@@ -96,30 +104,41 @@ function App() {
   const [account, setAccount] = useState(null);
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
-  const [contractInfo, setContractInfo] = useState([]);
-  const [contractAddr, setContractAddr] = useState([]);
   const [contract, setContract] = useState(null);
+  const [contractInfo, setContractInfo] = useState([]);
+  const [contractAddr, setContractAddr] = useState("");
+  const [toastData, setToasterData] = useState({
+    show: false,
+    result: "",
+    variant: "",
+  });
 
   // TODO check with metamask ethereum etc
   const { ethereum } = window;
 
   const requestAccountConnection = async () => {
-    console.log("Requesting acc...", ethereum);
+    console.log("Requesting acc...");
     if (ethereum) {
       try {
-        await ethereum
-          .request({ method: "eth_requestAccounts" })
-          .then((res) => {
+        await ethereum.request({ method: "eth_requestAccounts" }).then(
+          (res) => {
             accountChangeHandler(res[0]);
             setActive(true);
             if (localStorage.getItem("contract") !== null) {
               const setTempContract = localStorage.getItem("contract");
 
               setContractAddr(setTempContract);
+              console.log("Have contract in storage", res);
               getContractAndBalanceInfo(setTempContract);
             }
-          });
-      } catch {}
+          },
+          (error) => {
+            console.error(` In  request account ${error}`);
+          }
+        );
+      } catch (err) {
+        console.error("Request account error", err);
+      }
     } else {
       console.error("Metamask Not detected");
       setActive(false);
@@ -139,6 +158,7 @@ function App() {
     setSigner(tempSigner);
 
     let tempContract = await new ethers.Contract(addr, BUSD.abi, tempSigner);
+
     let contractAddress = tempContract.address;
     setContract(tempContract);
     setContractAddr(contractAddress);
@@ -162,11 +182,13 @@ function App() {
     connectWalletOnPageLoad();
   }, []);
 
+  // Disconnect account
   async function disconnectAccount() {
     try {
       setAccount(null);
       setActive(false);
       setContract(null);
+      console.log("disconnecting user...");
       localStorage.removeItem("contract");
       localStorage.removeItem("metamask-userConnected");
 
@@ -182,11 +204,16 @@ function App() {
       localStorage.setItem("contract", erc20Address); // saves local storage
       const tempProvider = new ethers.providers.Web3Provider(window.ethereum);
       await tempProvider.send("eth_requestAccounts", []);
-      let tempContract = new ethers.Contract(
-        erc20Address,
-        BUSD.abi,
-        tempProvider
-      );
+      let tempContract;
+      try {
+        tempContract = new ethers.Contract(
+          erc20Address,
+          BUSD.abi,
+          tempProvider
+        );
+      } catch (err) {
+        console.error("errror in getting contract", err);
+      }
       setContract(tempContract);
 
       const tokenName = await tempContract.name();
@@ -207,7 +234,6 @@ function App() {
         signerAddress
       );
 
-      //  const newContractInfos = [...contractInfo];
       const newContractInfos = [];
       setContractInfo(newContractInfos); // for refesh reasons
 
@@ -220,7 +246,6 @@ function App() {
         balance: balance,
         allowance: ethers.utils.formatEther(allowance) > 0,
       });
-
       setContractInfo(newContractInfos);
       updateEthers(erc20Address);
     }
@@ -242,11 +267,27 @@ function App() {
     }, 60000);
   }
 
-  function refreshData(disconnect = false) {
+  const refreshData = (disconnect = false) => {
+    console.log(disconnect);
+    console.log(contractAddr);
     if (contractAddr && !disconnect) {
+      console.log("refresh data...", contractAddr);
+      getContractAndBalanceInfo(contractAddr);
       window.location.reload();
+    } else {
+      setToasterData({
+        show: true,
+        result: "Missing connection with contract",
+        variant: "Warning",
+      });
+      setTimeout(() => {
+        setToasterData({
+          show: false,
+          ...toastData,
+        });
+      }, 2500);
     }
-  }
+  };
 
   return (
     <>
@@ -301,7 +342,6 @@ function App() {
                   <button
                     onClick={() => refreshData()}
                     type="button"
-                    disabled={!contractAddr}
                     className="btn btn-outline-info"
                   >
                     <span className="reload">&#x21bb;</span>
@@ -370,7 +410,6 @@ function App() {
                       <th>Total Balance of Account</th>
                       <th>Token</th>
                       <th>Total Supply</th>
-                      <th>Check allowance of spender</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -384,14 +423,12 @@ function App() {
                             {info.tokenName} ({info.tokenSymbol})
                           </td>
                           <td>{info.totalSupply}</td>
-                          <td>{info.allowance ? "yes" : "no"}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
                         <td>0</td>
                         <td>#</td>
-                        <td>-</td>
                         <td>-</td>
                         <td>-</td>
                       </tr>
@@ -419,6 +456,7 @@ function App() {
                   contractInfo={contractInfo}
                   singer={signer}
                   contract={contract}
+                  refresh={refreshData}
                 />
               </Card.Body>
             </Card>
@@ -426,6 +464,12 @@ function App() {
         ) : (
           <h2 className="text-center">Wallet not connected</h2>
         )}
+        <ResultToaster
+          result={toastData.result}
+          show={toastData.show}
+          variant={toastData.variant}
+          setData={setToasterData}
+        />
       </main>
     </>
   );

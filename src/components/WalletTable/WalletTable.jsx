@@ -15,9 +15,8 @@ export function WalletTable({ account, ethers }) {
     };
   });
 
-  let balanceBigN = async (account) => {
+  let updateChain = async (account) => {
     const provider = new ethers.providers.Web3Provider(ethereum);
-
     const network = await provider.getNetwork();
     const bal = await provider.getBalance(account);
     const block = await provider.getBlockNumber();
@@ -32,7 +31,7 @@ export function WalletTable({ account, ethers }) {
   };
 
   useEffect(() => {
-    balanceBigN(account);
+    updateChain(account);
     return () => {
       console.log("useEffect cleaned up");
     };
