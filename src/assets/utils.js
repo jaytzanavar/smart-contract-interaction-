@@ -65,3 +65,68 @@ export const chainNames = [
   { id: 137, name: "Polygon" },
   { id: 80001, name: "Polygon Testnet(Mumbai)" },
 ];
+
+export const TOKENS_BY_NETWORK = {
+  [chainNetworks.MainNet]: [
+    {
+      address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0",
+      name: "Matic Token",
+      symbol: "MATIC",
+      decimals: 18,
+      totalSuply: 10000000000000000000000000000,
+    },
+    {
+      address: "0x4Fabb145d64652a948d72533023f6E7A623C7C53",
+      name: "Binance USD",
+      symbol: "BUSD",
+      decimals: 18,
+      totalSuply: 17911718329560000000000000000,
+    },
+  ],
+  [chainNetworks.SmartChain]: [
+    {
+      address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0",
+      name: "Matic Token",
+      symbol: "MATIC",
+      decimals: 18,
+      totalSuply: 10000000000000000000000000000,
+    },
+    {
+      address: "0x4Fabb145d64652a948d72533023f6E7A623C7C53",
+      name: "Binance USD",
+      symbol: "BUSD",
+      decimals: 18,
+      totalSuply: 17911718329560000000000000000,
+    },
+  ],
+  [chainNetworks.Polygon]: [
+    {
+      address: "0xCC42724C6683B7E57334c4E856f4c9965ED682bD",
+      name: "Matic Token",
+      symbol: "MATIC",
+      decimals: 18,
+    },
+    {
+      address: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+      name: "BUSD Token",
+      symbol: "BUSD",
+      decimals: 18,
+      totalSuply: 4850999328629409465655005513,
+    },
+  ],
+  [chainNetworks.Mumbai]: [
+    {
+      address: "0x0000000000000000000000000000000000001010",
+      name: "Matic Token",
+      symbol: "MATIC",
+      decimals: 18,
+    },
+    {
+      address: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+      name: "BUSD Token",
+      symbol: "BUSD",
+      decimals: 18,
+      totalSuply: 4850999328629409465655005513,
+    },
+  ],
+};

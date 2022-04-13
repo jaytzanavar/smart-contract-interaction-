@@ -33,7 +33,7 @@ export function TransferChainTokenToAccount({ ethers, utils }) {
     <>
       {provider === undefined ? null : (
         <>
-          <h4>Transfer Token to Account</h4>
+          <h4>Transfer Matic Token to Account</h4>
           <div className="container">
             <Formik
               initialValues={{
@@ -99,6 +99,9 @@ export function TransferChainTokenToAccount({ ethers, utils }) {
                       >
                         Send
                       </Button>
+                    </div>
+                    <div className="col-6">
+                      <h5>Transfer Hash:{transferHash}</h5>
                     </div>
                   </div>
                 </form>

@@ -37,8 +37,8 @@ export default function ChangeChainModal() {
   };
   // async handle to change network
   const handleNetworkSwitch = async (networkName) => {
-    setError();
-    await changeNetwork({ networkName, setError });
+    setError("");
+    await changeNetwork({ networkName, error });
     handleClose();
   };
 

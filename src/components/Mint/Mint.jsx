@@ -6,7 +6,6 @@ import { useState } from "react";
 import { ResultToaster } from "../ResultToaster/ResultToaster.jsx";
 
 export function Mint({ contract, provider, contractInfo, refresh }) {
-  const [transferHash, setTransferHash] = useState(null);
   const [toastData, setToasterData] = useState({
     show: false,
     result: "",
@@ -21,7 +20,6 @@ export function Mint({ contract, provider, contractInfo, refresh }) {
           result: "Minting token Pending... ",
           variant: "Warning",
         });
-        setTransferHash(res.hash);
 
         await res.wait().then((res) => {});
         setToasterData({
@@ -43,8 +41,8 @@ export function Mint({ contract, provider, contractInfo, refresh }) {
 
   return (
     <>
-      {/*START Burn  */}
-      <div className="container">
+      {/*START Mint  */}
+      <div className="container mt-5">
         <div className="row">
           <Formik
             initialValues={{ amount: 0 }}

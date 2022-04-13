@@ -1,6 +1,5 @@
 import Toast from "react-bootstrap/Toast";
 import moment from "moment";
-import { useState } from "react";
 import "./ResultToaster.css";
 
 export function ResultToaster(props) {

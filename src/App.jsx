@@ -9,104 +9,46 @@ import Overlay from "react-bootstrap/Overlay";
 import Tooltip from "react-bootstrap/Tooltip";
 import Button from "react-bootstrap/Button";
 import Table from "react-bootstrap/Table";
+import Tabs from "react-bootstrap/Tabs";
+import Tab from "react-bootstrap/Tab";
 import Card from "react-bootstrap/Card";
 import BUSD from "./contracts/BUSD.json";
 import ChangeChainModal from "./components/ChangeChainModal/ChangeChainModal.jsx";
 import { useFormik } from "formik";
-import { chainNetworks } from "./assets/utils";
 import { WalletTable } from "./components/WalletTable/WalletTable";
 import TransferChainTokenToAccount from "./components/TransferChainTokenToAccount/TransferChainTokenToAccount";
 import SmartContractInteractions from "./components/SmartContractInteractions/SmartContractInteractions";
 import { ResultToaster } from "./components/ResultToaster/ResultToaster.jsx";
+import { BlockchainEvents } from "./components/BlockchainEvents/BlockchainEvents";
 
 export default function DappWrapper() {
   return <App />;
 }
 
-export const TOKENS_BY_NETWORK = {
-  [chainNetworks.MainNet]: [
-    {
-      address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0",
-      name: "Matic Token",
-      symbol: "MATIC",
-      decimals: 18,
-      totalSuply: 10000000000000000000000000000,
-    },
-    {
-      address: "0x4Fabb145d64652a948d72533023f6E7A623C7C53",
-      name: "Binance USD",
-      symbol: "BUSD",
-      decimals: 18,
-      totalSuply: 17911718329560000000000000000,
-    },
-  ],
-  [chainNetworks.SmartChain]: [
-    {
-      address: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0",
-      name: "Matic Token",
-      symbol: "MATIC",
-      decimals: 18,
-      totalSuply: 10000000000000000000000000000,
-    },
-    {
-      address: "0x4Fabb145d64652a948d72533023f6E7A623C7C53",
-      name: "Binance USD",
-      symbol: "BUSD",
-      decimals: 18,
-      totalSuply: 17911718329560000000000000000,
-    },
-  ],
-  [chainNetworks.Polygon]: [
-    {
-      address: "0xCC42724C6683B7E57334c4E856f4c9965ED682bD",
-      name: "Matic Token",
-      symbol: "MATIC",
-      decimals: 18,
-    },
-    {
-      address: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-      name: "BUSD Token",
-      symbol: "BUSD",
-      decimals: 18,
-      totalSuply: 4850999328629409465655005513,
-    },
-  ],
-  [chainNetworks.Mumbai]: [
-    {
-      address: "0x0000000000000000000000000000000000001010",
-      name: "Matic Token",
-      symbol: "MATIC",
-      decimals: 18,
-    },
-    {
-      address: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-      name: "BUSD Token",
-      symbol: "BUSD",
-      decimals: 18,
-      totalSuply: 4850999328629409465655005513,
-    },
-  ],
-};
+function handleChainChange(accounts) {
+  if (accounts != null) {
+    window.location.reload();
+    window.ethereum
+      .removeListener("accountsChanged", handleChainChange)
+      .setMaxListeners("1");
+  }
+}
 
 function App() {
-  window.ethereum.on("accountsChanged", function (accounts) {
-    // Time to reload your interface with accounts[0]
-    if (account != null) {
-      window.location.reload();
-    }
-  });
+  console.log("App has started");
+  window.ethereum.on("accountsChanged", handleChainChange);
 
-  console.log("app starting...");
   // clipboard overlay
-  const target = useRef(null);
+  const clipboardTarget = useRef(null);
+  const [key, setKey] = useState("interactions");
   const [showClipboard, setShowClipboard] = useState(false);
   const [active, setActive] = useState(null);
   const [account, setAccount] = useState(null);
   const [provider, setProvider] = useState(null);
-  const [signer, setSigner] = useState(null);
-  const [contract, setContract] = useState(null);
+  const [contractProps, setContractProps] = useState({ contractInfo: [] });
   const [contractInfo, setContractInfo] = useState([]);
   const [contractAddr, setContractAddr] = useState("");
+
   const [toastData, setToasterData] = useState({
     show: false,
     result: "",
@@ -116,8 +58,125 @@ function App() {
   // TODO check with metamask ethereum etc
   const { ethereum } = window;
 
+  // keep user connected
+  useEffect(() => {
+    const connectWalletOnPageLoad = async () => {
+      console.log("connectWallet on page load");
+      if (localStorage?.getItem("metamask-userConnected") === "true") {
+        try {
+          if (ethereum) {
+            try {
+              await ethereum.request({ method: "eth_requestAccounts" }).then(
+                async (res) => {
+                  accountChangeHandler(res[0]);
+                  setAccount(res[0]);
+                  setActive(true);
+                  if (localStorage.getItem("contract") !== null) {
+                    const tempProvider = new ethers.providers.Web3Provider(
+                      window.ethereum
+                    );
+                    setProvider(tempProvider);
+                    const tempSigner = await tempProvider.getSigner();
+                    console.log(await tempProvider.getSigner());
+                    const tempSignerAddress = await tempSigner.getAddress();
+
+                    const setTempContractAddress =
+                      localStorage.getItem("contract");
+                    let tempContract = new ethers.Contract(
+                      setTempContractAddress,
+                      BUSD.abi,
+                      tempSigner
+                    );
+                    const tokenName = await tempContract.name();
+                    const tokenSymbol = await tempContract.symbol();
+                    const totalSupply = ethers.utils.formatEther(
+                      await tempContract.totalSupply()
+                    );
+
+                    const balance = ethers.utils.formatEther(
+                      await tempContract.balanceOf(tempSignerAddress)
+                    );
+
+                    const newContractInfos = [];
+                    newContractInfos.push({
+                      contractAddress: setTempContractAddress,
+                      tokenName,
+                      tokenSymbol,
+                      totalSupply: totalSupply,
+                      accountAddress: tempSigner,
+                      balance: balance,
+                    });
+                    setContractInfo(newContractInfos);
+                    setContractProps({
+                      provider: tempProvider,
+                      ethers: ethers,
+                      contractInfo: newContractInfos,
+                      contract: tempContract,
+                      signer: tempSigner,
+                    });
+                  }
+                },
+                (error) => {
+                  console.error(` In  request account ${error}`);
+                }
+              );
+            } catch (err) {
+              console.error("Request account error", err);
+            }
+          } else {
+            console.error("Metamask Not detected");
+            setActive(false);
+          }
+        } catch (ex) {
+          console.error(ex);
+        }
+      }
+    };
+    connectWalletOnPageLoad();
+  }, [ethereum]);
+
+  const refreshData = (disconnect = false) => {
+    if (localStorage?.getItem("contract") !== undefined) {
+      getContractAndBalanceInfo(localStorage?.getItem("contract"));
+      window.location.reload();
+    } else {
+      if (disconnect && (contractAddr.length === 0 || contractAddr === null)) {
+        setToasterData({
+          show: true,
+          result: "Missing connection with contract",
+          variant: "Warning",
+        });
+        setContractInfo([]);
+        setTimeout(() => {
+          setToasterData({
+            show: false,
+            ...toastData,
+          });
+        }, 2500);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (active) {
+      let autoRefreshInterval;
+
+      if (!!localStorage?.getItem("contract")) {
+        autoRefreshInterval = setInterval(async () => {
+          window.location.reload();
+        }, 60000);
+      }
+      return () => {
+        clearInterval(autoRefreshInterval);
+      };
+    }
+  }, [active]);
+
+  const accountChangeHandler = (newAccount) => {
+    setAccount(newAccount);
+  };
+
   const requestAccountConnection = async () => {
-    console.log("Requesting acc...");
     if (ethereum) {
       try {
         await ethereum.request({ method: "eth_requestAccounts" }).then(
@@ -126,9 +185,6 @@ function App() {
             setActive(true);
             if (localStorage.getItem("contract") !== null) {
               const setTempContract = localStorage.getItem("contract");
-
-              setContractAddr(setTempContract);
-              console.log("Have contract in storage", res);
               getContractAndBalanceInfo(setTempContract);
             }
           },
@@ -145,53 +201,14 @@ function App() {
     }
   };
 
-  const accountChangeHandler = (newAccount) => {
-    setAccount(newAccount);
-  };
-
-  const updateEthers = async (addr) => {
-    let tempProvider = new ethers.providers.Web3Provider(window.ethereum);
-    setProvider(tempProvider);
-
-    let tempSigner = tempProvider.getSigner();
-
-    setSigner(tempSigner);
-
-    let tempContract = await new ethers.Contract(addr, BUSD.abi, tempSigner);
-
-    let contractAddress = tempContract.address;
-    setContract(tempContract);
-    setContractAddr(contractAddress);
-  };
-
-  // keep user connected
-  useEffect(() => {
-    const connectWalletOnPageLoad = async () => {
-      if (localStorage?.getItem("metamask-userConnected") === "true") {
-        try {
-          await requestAccountConnection();
-        } catch (ex) {
-          console.error(ex);
-        }
-      }
-
-      if (!!localStorage?.getItem("contract")) {
-        autoRefresh();
-      }
-    };
-    connectWalletOnPageLoad();
-  }, []);
-
   // Disconnect account
   async function disconnectAccount() {
     try {
       setAccount(null);
       setActive(false);
-      setContract(null);
-      console.log("disconnecting user...");
+      setContractProps({});
       localStorage.removeItem("contract");
       localStorage.removeItem("metamask-userConnected");
-
       refreshData(true);
     } catch (ex) {
       console.error(ex);
@@ -201,42 +218,34 @@ function App() {
   // on utilise Mumbai testnet 80001 / 0x15A40d37e6f8A478DdE2cB18c83280D472B2fC35 BUSD token
   async function getContractAndBalanceInfo(erc20Address) {
     if (erc20Address) {
-      localStorage.setItem("contract", erc20Address); // saves local storage
-      const tempProvider = new ethers.providers.Web3Provider(window.ethereum);
-      await tempProvider.send("eth_requestAccounts", []);
+      localStorage.setItem("contract", erc20Address);
+      let tempProvider = provider;
       let tempContract;
+
+      if (provider === null) {
+        tempProvider = new ethers.providers.Web3Provider(window.ethereum);
+      } // saves local storage
+      await tempProvider.send("eth_requestAccounts", []);
+      setProvider(tempProvider);
+
+      const tempSigner = await tempProvider.getSigner(); //jsonRpc
+      const signerAddress = await tempSigner.getAddress();
+
       try {
-        tempContract = new ethers.Contract(
-          erc20Address,
-          BUSD.abi,
-          tempProvider
-        );
+        tempContract = new ethers.Contract(erc20Address, BUSD.abi, tempSigner);
       } catch (err) {
         console.error("errror in getting contract", err);
       }
-      setContract(tempContract);
-
       const tokenName = await tempContract.name();
       const tokenSymbol = await tempContract.symbol();
       const totalSupply = ethers.utils.formatEther(
         await tempContract.totalSupply()
       );
-
-      // await provider;
-      const signer = await tempProvider.getSigner(); //jsonRpc
-      const signerAddress = await signer.getAddress();
-
       const balance = ethers.utils.formatEther(
         await tempContract.balanceOf(signerAddress)
       );
-      const allowance = await tempContract.allowance(
-        erc20Address,
-        signerAddress
-      );
 
       const newContractInfos = [];
-      setContractInfo(newContractInfos); // for refesh reasons
-
       newContractInfos.push({
         contractAddress: erc20Address,
         tokenName,
@@ -244,10 +253,15 @@ function App() {
         totalSupply: totalSupply,
         accountAddress: signerAddress,
         balance: balance,
-        allowance: ethers.utils.formatEther(allowance) > 0,
       });
       setContractInfo(newContractInfos);
-      updateEthers(erc20Address);
+      setContractProps({
+        provider: tempProvider,
+        ethers: ethers,
+        contractInfo: newContractInfos,
+        contract: tempContract,
+        signer: tempSigner,
+      });
     }
   }
 
@@ -260,34 +274,6 @@ function App() {
       getContractAndBalanceInfo(values.erc20ContractAddress);
     },
   });
-
-  function autoRefresh() {
-    setInterval(() => {
-      refreshData();
-    }, 60000);
-  }
-
-  const refreshData = (disconnect = false) => {
-    console.log(disconnect);
-    console.log(contractAddr);
-    if (contractAddr && !disconnect) {
-      console.log("refresh data...", contractAddr);
-      getContractAndBalanceInfo(contractAddr);
-      window.location.reload();
-    } else {
-      setToasterData({
-        show: true,
-        result: "Missing connection with contract",
-        variant: "Warning",
-      });
-      setTimeout(() => {
-        setToasterData({
-          show: false,
-          ...toastData,
-        });
-      }, 2500);
-    }
-  };
 
   return (
     <>
@@ -316,14 +302,14 @@ function App() {
                       }}
                       className="metamask-btn "
                       variant="outline-secondary"
-                      ref={target}
+                      ref={clipboardTarget}
                     >
                       Account {account}
                     </Button>
                     <Overlay
                       key="bottom"
                       placement="bottom"
-                      target={target.current}
+                      clipboardTarget={clipboardTarget.current}
                       show={showClipboard}
                     >
                       <Tooltip id="tooltip-bottom">
@@ -367,13 +353,20 @@ function App() {
       <main className="main-screen-position">
         {active ? (
           <div>
-            <div className="container">
-              <h2 className="text-center">Metamask connected</h2>
-            </div>
             <Card className="container mb-4">
               <Card.Body>
                 <WalletTable ethers={ethers} account={account} />
               </Card.Body>
+            </Card>
+            <Card className="container mb-4">
+              {
+                <Card.Body>
+                  <TransferChainTokenToAccount
+                    ethers={ethers}
+                    utils={ethers.utils}
+                  />
+                </Card.Body>
+              }
             </Card>
             <Card className="container mb-4">
               <Card.Body>
@@ -438,26 +431,29 @@ function App() {
                 </Table>
               </Card.Body>
             </Card>
-            <Card className="container mb-4">
-              {
-                <Card.Body>
-                  <TransferChainTokenToAccount
-                    ethers={ethers}
-                    utils={ethers.utils}
-                  />
-                </Card.Body>
-              }
-            </Card>
+
             <Card className="container mb-4">
               <Card.Body>
-                <SmartContractInteractions
-                  provider={provider}
-                  ethers={ethers}
-                  contractInfo={contractInfo}
-                  singer={signer}
-                  contract={contract}
-                  refresh={refreshData}
-                />
+                <Tabs
+                  id="controlled-tab-example"
+                  activeKey={key}
+                  onSelect={(k) => setKey(k)}
+                  className="mb-3"
+                  defaultActiveKey="interactions"
+                >
+                  <Tab
+                    eventKey="interactions"
+                    title="smartContractInteractions"
+                  >
+                    <SmartContractInteractions
+                      contractProps={contractProps}
+                      refresh={refreshData}
+                    />
+                  </Tab>
+                  <Tab eventKey="blockchainEvents" title="BlockchainEvents">
+                    <BlockchainEvents contractProps={contractProps} />
+                  </Tab>
+                </Tabs>
               </Card.Body>
             </Card>
           </div>
