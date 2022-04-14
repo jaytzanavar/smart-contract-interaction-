@@ -58,7 +58,7 @@ function App() {
   // TODO check with metamask ethereum etc
   const { ethereum } = window;
 
-  // keep user connected
+  // keep user connectedF
   useEffect(() => {
     const connectWalletOnPageLoad = async () => {
       console.log("connectWallet on page load");
@@ -77,7 +77,6 @@ function App() {
                     );
                     setProvider(tempProvider);
                     const tempSigner = await tempProvider.getSigner();
-                    console.log(await tempProvider.getSigner());
                     const tempSignerAddress = await tempSigner.getAddress();
 
                     const setTempContractAddress =
@@ -162,9 +161,9 @@ function App() {
       let autoRefreshInterval;
 
       if (!!localStorage?.getItem("contract")) {
-        autoRefreshInterval = setInterval(async () => {
-          window.location.reload();
-        }, 60000);
+        // autoRefreshInterval = setInterval(async () => {
+        //   window.location.reload();
+        // }, 60000);
       }
       return () => {
         clearInterval(autoRefreshInterval);
@@ -443,14 +442,14 @@ function App() {
                 >
                   <Tab
                     eventKey="interactions"
-                    title="smartContractInteractions"
+                    title="Smart Contract Interactions"
                   >
                     <SmartContractInteractions
                       contractProps={contractProps}
                       refresh={refreshData}
                     />
                   </Tab>
-                  <Tab eventKey="blockchainEvents" title="BlockchainEvents">
+                  <Tab eventKey="blockchainEvents" title="Blockchain Events">
                     <BlockchainEvents contractProps={contractProps} />
                   </Tab>
                 </Tabs>
