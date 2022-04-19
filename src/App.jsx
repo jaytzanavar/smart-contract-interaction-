@@ -299,7 +299,7 @@ function App() {
                           setShowClipboard(false);
                         }, 1200);
                       }}
-                      className="metamask-btn "
+                      className="metamask-btn"
                       variant="outline-secondary"
                       ref={clipboardTarget}
                     >

@@ -2,13 +2,23 @@ import { useEffect, useState } from "react";
 import { ResultToaster } from "../ResultToaster/ResultToaster";
 import Table from "react-bootstrap/Table";
 import Card from "react-bootstrap/Card";
+import Spinner from "react-bootstrap/Spinner";
 import "./BlockchainEvents.css";
 
 export function BlockchainEvents({ contractProps }) {
   console.log("Blockchain events has started...");
   const [contractApprovedEvents, setContractApprovedEvents] = useState([]);
+  const [contractApprovedEventsLoading, setLoadingContractApprovedEvents] =
+    useState(false);
   const [usersContractApprovedEvents, setUsersContractApprovedEvents] =
     useState([]);
+  const [
+    usersContractApprovedEventsLoading,
+    setLoadingUsersContractApprovedEvents,
+  ] = useState(false);
+  const [userOverallAllowance, setUserOverallAllowance] = useState([]);
+  const [userOverallAllowanceLoading, setLoadingUserOverallAllowance] =
+    useState(false);
   const [latestBlockNumber, setLatestBlockNumber] = useState(0);
   const [currentSigner, setCurrentSigner] = useState("");
   const [contractSymbol, setContractSymbol] = useState("");
@@ -19,8 +29,10 @@ export function BlockchainEvents({ contractProps }) {
     variant: "",
   });
 
+  let contractBUSCreatedBlock = 22069112; // hardcoded
+
   let { provider, ethers, contractInfo, contract, signer } = contractProps;
-  console.log(contractInfo);
+
   useEffect(() => {
     if (!!provider) {
       provider.getBlockNumber().then((res) => {
@@ -138,74 +150,100 @@ export function BlockchainEvents({ contractProps }) {
     ) {
       const approveFilters = contract.filters.Approval(currentSigner);
       let lastBlockToCheck = latestBlockNumber;
-      let endBlock = lastBlockToCheck;
       let allApproveEvents = [];
-
-      for (let i = 0; i < lastBlockToCheck; i += 1000) {
-        const _endBlock = endBlock - i; //Math.min(endBlock, i + 1000);
-        const _startBlock = endBlock - (i + 1000);
-        console.log({ _startBlock, _endBlock });
+      for (let i = lastBlockToCheck; i >= contractBUSCreatedBlock; i -= 1000) {
+        const _startBlock = i - 1000;
+        const _endBlock = i;
         const approvedE = await contract.queryFilter(
           approveFilters,
           _startBlock,
           _endBlock
         );
 
-        console.log("Allo*****************", approvedE);
-        allApproveEvents = [...allApproveEvents, ...approvedE];
-        if (allApproveEvents.length >= 20) break;
-      }
+        if (approvedE.length > 0)
+          allApproveEvents = [...allApproveEvents, ...approvedE];
 
-      if (allApproveEvents.length > 20) {
-        allApproveEvents = allApproveEvents.slice(0, 20);
-        if (allApproveEvents.length === 20) {
-          return allApproveEvents;
-        }
+        if (allApproveEvents.length >= 15) break;
       }
       return allApproveEvents;
     }
   };
 
-  investigateTransferApproveBlockchain().then((res) => {
-    if (!!res) {
-      if (res.length > 0) {
-        if (contractApprovedEvents.length < 10) {
-          const tempArray = [...contractApprovedEvents, ...res];
-          setContractApprovedEvents(tempArray);
+  function queryInvestigateTransferApproveBlockchain() {
+    setLoadingContractApprovedEvents(true);
+    investigateTransferApproveBlockchain().then((res) => {
+      if (!!res) {
+        if (res.length > 0) {
+          if (contractApprovedEvents.length < 10) {
+            const tempArray = [...contractApprovedEvents, ...res];
+            setContractApprovedEvents(tempArray);
+            setLoadingContractApprovedEvents(false);
+          }
         }
       }
-    }
-  });
+    });
+  }
+  function queryInvestigateUsersTransferApproveBlockchain() {
+    setLoadingUsersContractApprovedEvents(true);
+    investigateUsersTransferApproveBlockchain().then((res) => {
+      if (!!res) {
+        if (res.length > 0) {
+          if (contractApprovedEvents.length < 10) {
+            const tempArray = [...contractApprovedEvents, ...res];
+            setUsersContractApprovedEvents(tempArray);
+            setLoadingUsersContractApprovedEvents(false);
+          }
+        }
+      }
+    });
+  }
 
-  investigateUsersTransferApproveBlockchain().then((res) => {
-    if (!!res) {
-      if (res.length > 0) {
-        if (contractApprovedEvents.length < 10) {
-          const tempArray = [...contractApprovedEvents, ...res];
-          setUsersContractApprovedEvents(tempArray);
+  function queryInvestiagetUserOverallAllowance() {
+    setLoadingUserOverallAllowance(true);
+    investigateAllTokenAllowance().then((res) => {
+      if (!!res) {
+        if (res.length > 0) {
+          if (contractApprovedEvents.length < 13) {
+            const tempArray = [...contractApprovedEvents, ...res];
+            setUserOverallAllowance(tempArray);
+            setLoadingUserOverallAllowance(false);
+          }
         }
       }
-    }
-  });
-
-  investigateAllTokenAllowance().then((res) => {
-    if (!!res) {
-      if (res.length > 0) {
-        console.log(" allowance array", res);
-        if (contractApprovedEvents.length < 20) {
-          const tempArray = [...contractApprovedEvents, ...res];
-          setUsersContractApprovedEvents(tempArray);
-        }
-      }
-    }
-  });
+    });
+  }
 
   return (
     <>
       <h4>Contract's {contractAddr} Filter Events</h4>
       <div className="container mt-5">
         <div className="row">
-          <h6>Blockchain Approve &#x26; Transfer Events</h6>
+          <div className="row">
+            <h6 className="col-6">Blockchain Approve &#x26; Transfer Events</h6>
+            <div className="col-6">
+              <div className="row">
+                <div
+                  style={{
+                    visibility: contractApprovedEventsLoading
+                      ? "visible"
+                      : "hidden",
+                  }}
+                  className="offset-3 col-3 d-flex"
+                >
+                  <div style={{ marginRight: 10 }}>Querying...</div>
+                  <Spinner animation="border" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </Spinner>
+                </div>
+                <button
+                  onClick={() => queryInvestigateTransferApproveBlockchain()}
+                  className="btn btn-primary col-6"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
+          </div>
           <Card>
             <Card.Body className="table-overflow ">
               <Table striped bordered hover>
@@ -269,7 +307,41 @@ export function BlockchainEvents({ contractProps }) {
           </Card>
         </div>
         <div className="row mt-3">
-          <h6> User's ({currentSigner}) Events Approve &#x26; Transfer</h6>
+          <div className="row">
+            <h6 className="col-6">
+              {" "}
+              User's (
+              {currentSigner.length > 20
+                ? currentSigner.substr(0, 19) + "..."
+                : currentSigner}
+              ) Events Approve &#x26; Transfer
+            </h6>
+            <div className="col-6">
+              <div className="row">
+                <div
+                  style={{
+                    visibility: usersContractApprovedEventsLoading
+                      ? "visible"
+                      : "hidden",
+                  }}
+                  className="offset-3 col-3 d-flex"
+                >
+                  <div style={{ marginRight: 10 }}>Querying...</div>
+                  <Spinner animation="border" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </Spinner>
+                </div>
+                <button
+                  onClick={() =>
+                    queryInvestigateUsersTransferApproveBlockchain()
+                  }
+                  className="btn btn-primary col-6"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
+          </div>
           <Card>
             <Card.Body className="table-overflow ">
               <Table striped bordered hover>
@@ -293,6 +365,97 @@ export function BlockchainEvents({ contractProps }) {
                   {/* {event.args[3]} */}
                   {usersContractApprovedEvents.length > 0 ? (
                     usersContractApprovedEvents.map((event, index) => (
+                      <tr key={event.blockHash + index}>
+                        <td>{index}</td>
+
+                        <td>{event.blockHash}</td>
+                        <td>{event.blockNumber}</td>
+                        <td>{event.args[0]}</td>
+                        <td>{event.args[1]}</td>
+                        <td>
+                          {ethers.utils.formatEther(event.args[2])}
+                          {contractSymbol}
+                        </td>
+                        <td>{event.eventSignature}</td>
+                        <td>{event.logIndex}</td>
+                        <td>{event.removed}</td>
+                        <td>{event.transactionHash}</td>
+                        <td>{event.transactionIndex}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td>no</td>
+
+                      <td>-</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>-</td>
+                    </tr>
+                  )}
+                  <tr></tr>
+                </tbody>
+              </Table>
+            </Card.Body>
+          </Card>
+        </div>
+        <div className="row mt-3">
+          <div className="row">
+            <h6 className="col-6"> User's overal allowance</h6>
+            <div className="col-6">
+              <div className="row">
+                <div
+                  style={{
+                    visibility: userOverallAllowanceLoading
+                      ? "visible"
+                      : "hidden",
+                  }}
+                  className="offset-3 col-3 d-flex"
+                >
+                  <div style={{ marginRight: 10 }}>Querying...</div>
+                  <Spinner animation="border" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </Spinner>
+                </div>
+                <button
+                  onClick={() => queryInvestiagetUserOverallAllowance()}
+                  className="col-6 btn btn-primary"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <Card>
+            <Card.Body className="table-overflow ">
+              <Table striped bordered hover>
+                <thead>
+                  <tr>
+                    <th>#</th>
+
+                    <th>BlockHash</th>
+                    <th>BlockNumber</th>
+                    <th>Owner</th>
+                    <th>Spender</th>
+                    <th>Value</th>
+                    <th>EventSignature</th>
+                    <th>LogIndex</th>
+                    <th>Removed</th>
+                    <th>TransactionHash</th>
+                    <th>TransactionIndex</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* {event.args[3]} */}
+                  {userOverallAllowance.length > 0 ? (
+                    userOverallAllowance.map((event, index) => (
                       <tr key={event.blockHash + index}>
                         <td>{index}</td>
 
