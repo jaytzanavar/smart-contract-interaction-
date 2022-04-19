@@ -20,6 +20,7 @@ import TransferChainTokenToAccount from "./components/TransferChainTokenToAccoun
 import SmartContractInteractions from "./components/SmartContractInteractions/SmartContractInteractions";
 import { ResultToaster } from "./components/ResultToaster/ResultToaster.jsx";
 import { BlockchainEvents } from "./components/BlockchainEvents/BlockchainEvents";
+import { BlockchainLiveUpdate } from "./components/BlockchainLiveUpdates/BlockchainLiveUpdate";
 
 export default function DappWrapper() {
   return <App />;
@@ -279,7 +280,21 @@ function App() {
       <header>
         <Navbar className="fixed-refresh-icon" bg="light" expand="lg">
           <Container>
-            <Navbar.Brand>Smart Contract App </Navbar.Brand>
+            <Navbar.Brand>
+              <div className="d-flex">
+                <BlockchainLiveUpdate
+                  ethers={ethers}
+                  contractAdd={contractAddr}
+                  abi={BUSD.abi}
+                />
+                <div
+                  style={{ marginLeft: 10 }}
+                  className="d-flex flex-collumn align-items-center"
+                >
+                  Smart Contract App
+                </div>
+              </div>
+            </Navbar.Brand>
             {active ? (
               <Nav>
                 <Nav.Item>
@@ -394,7 +409,7 @@ function App() {
                     </Button>
                   </Form>
                 </div>
-                <h3> Contract Info </h3>
+                <h4> Contract Info </h4>
                 <Table striped bordered hover>
                   <thead>
                     <tr>

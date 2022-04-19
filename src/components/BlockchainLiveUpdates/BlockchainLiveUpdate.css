@@ -1,0 +1,12 @@
+img {
+  display: block;
+  width: 45px;
+  height: 45px;
+  cursor: pointer;
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
+    border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+img:hover {
+  color: #fff;
+}

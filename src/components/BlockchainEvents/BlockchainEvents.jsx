@@ -8,6 +8,7 @@ import "./BlockchainEvents.css";
 export function BlockchainEvents({ contractProps }) {
   console.log("Blockchain events has started...");
   const [contractApprovedEvents, setContractApprovedEvents] = useState([]);
+  const [blockTimeStamp, seBlockTimeStamp] = useState([{}]);
   const [contractApprovedEventsLoading, setLoadingContractApprovedEvents] =
     useState(false);
   const [usersContractApprovedEvents, setUsersContractApprovedEvents] =
@@ -176,6 +177,8 @@ export function BlockchainEvents({ contractProps }) {
         if (res.length > 0) {
           if (contractApprovedEvents.length < 10) {
             const tempArray = [...contractApprovedEvents, ...res];
+            let bn = tempArray.map((x) => x.blockNumber);
+            bn.forEach((x) => getDateFromBlockNumber(x));
             setContractApprovedEvents(tempArray);
             setLoadingContractApprovedEvents(false);
           }
@@ -213,290 +216,325 @@ export function BlockchainEvents({ contractProps }) {
     });
   }
 
+  const getDateFromBlockNumber = async (blocknum) => {
+    console.log(blocknum);
+    let timestamp = await provider.getBlock(blocknum);
+    console.log(timestamp);
+    seBlockTimeStamp([
+      ...blockTimeStamp,
+      { blocknum: blocknum, timest: timestamp },
+    ]);
+    console.log(blockTimeStamp);
+  };
+
   return (
     <>
-      <h4>Contract's {contractAddr} Filter Events</h4>
-      <div className="container mt-5">
-        <div className="row">
-          <div className="row">
-            <h6 className="col-6">Blockchain Approve &#x26; Transfer Events</h6>
-            <div className="col-6">
+      {contract ? (
+        <>
+          {" "}
+          <h4>Contract's {contractAddr} Filter Events</h4>
+          <div className="container mt-5">
+            <div className="row">
               <div className="row">
-                <div
-                  style={{
-                    visibility: contractApprovedEventsLoading
-                      ? "visible"
-                      : "hidden",
-                  }}
-                  className="offset-3 col-3 d-flex"
-                >
-                  <div style={{ marginRight: 10 }}>Querying...</div>
-                  <Spinner animation="border" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </Spinner>
+                <h6 className="col-6">
+                  Blockchain Approve &#x26; Transfer Events
+                </h6>
+                <div className="col-6">
+                  <div className="row">
+                    <div
+                      style={{
+                        visibility: contractApprovedEventsLoading
+                          ? "visible"
+                          : "hidden",
+                      }}
+                      className="offset-3 col-3 d-flex"
+                    >
+                      <div style={{ marginRight: 10 }}>Querying...</div>
+                      <Spinner animation="border" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                      </Spinner>
+                    </div>
+                    <button
+                      onClick={() =>
+                        queryInvestigateTransferApproveBlockchain()
+                      }
+                      className="btn btn-primary col-6"
+                    >
+                      Search
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => queryInvestigateTransferApproveBlockchain()}
-                  className="btn btn-primary col-6"
-                >
-                  Search
-                </button>
               </div>
+              <Card>
+                <Card.Body className="table-overflow ">
+                  <Table striped bordered hover>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+
+                        <th>Block Hash</th>
+                        <th>Block Number</th>
+                        <th>Date</th>
+                        <th>Owner</th>
+                        <th>Spender</th>
+                        <th>Value</th>
+                        <th>EventSignature</th>
+                        <th>LogIndex</th>
+                        <th>Removed</th>
+                        <th>TransactionHash</th>
+                        <th>TransactionIndex</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contractApprovedEvents.length > 0 ? (
+                        contractApprovedEvents.map((event, index) => (
+                          <tr key={event.blockHash + index}>
+                            <td>{index}</td>
+
+                            <td>{event.blockHash}</td>
+                            <td>{event.blockNumber}</td>
+                            <td>
+                              {
+                                blockTimeStamp.filter(
+                                  (x) => x.blockNumber === event.blockNumber
+                                )[0]?.timest
+                              }
+                            </td>
+                            <td>{event.args[0]}</td>
+                            <td>{event.args[1]}</td>
+                            <td>
+                              {ethers.utils.formatEther(event.args[2])}
+                              {contractSymbol}
+                            </td>
+                            <td>{event.eventSignature}</td>
+                            <td>{event.logIndex}</td>
+                            <td>{event.removed}</td>
+                            <td>{event.transactionHash}</td>
+                            <td>{event.transactionIndex}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td>no</td>
+
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                        </tr>
+                      )}
+                      <tr></tr>
+                    </tbody>
+                  </Table>
+                </Card.Body>
+              </Card>
+            </div>
+            <div className="row mt-3">
+              <div className="row">
+                <h6 className="col-6">
+                  {" "}
+                  User's (
+                  {currentSigner.length > 20
+                    ? currentSigner.substr(0, 19) + "..."
+                    : currentSigner}
+                  ) Events Approve &#x26; Transfer
+                </h6>
+                <div className="col-6">
+                  <div className="row">
+                    <div
+                      style={{
+                        visibility: usersContractApprovedEventsLoading
+                          ? "visible"
+                          : "hidden",
+                      }}
+                      className="offset-3 col-3 d-flex"
+                    >
+                      <div style={{ marginRight: 10 }}>Querying...</div>
+                      <Spinner animation="border" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                      </Spinner>
+                    </div>
+                    <button
+                      onClick={() =>
+                        queryInvestigateUsersTransferApproveBlockchain()
+                      }
+                      className="btn btn-primary col-6"
+                    >
+                      Search
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <Card>
+                <Card.Body className="table-overflow ">
+                  <Table striped bordered hover>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+
+                        <th>BlockHash</th>
+                        <th>BlockNumber</th>
+                        <th>Owner</th>
+                        <th>Spender</th>
+                        <th>Value</th>
+                        <th>EventSignature</th>
+                        <th>LogIndex</th>
+                        <th>Removed</th>
+                        <th>TransactionHash</th>
+                        <th>TransactionIndex</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* {event.args[3]} */}
+                      {usersContractApprovedEvents.length > 0 ? (
+                        usersContractApprovedEvents.map((event, index) => (
+                          <tr key={event.blockHash + index}>
+                            <td>{index}</td>
+
+                            <td>{event.blockHash}</td>
+                            <td>{event.blockNumber}</td>
+                            <td>{event.args[0]}</td>
+                            <td>{event.args[1]}</td>
+                            <td>
+                              {ethers.utils.formatEther(event.args[2])}
+                              {contractSymbol}
+                            </td>
+                            <td>{event.eventSignature}</td>
+                            <td>{event.logIndex}</td>
+                            <td>{event.removed}</td>
+                            <td>{event.transactionHash}</td>
+                            <td>{event.transactionIndex}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td>no</td>
+
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                        </tr>
+                      )}
+                      <tr></tr>
+                    </tbody>
+                  </Table>
+                </Card.Body>
+              </Card>
+            </div>
+            <div className="row mt-3">
+              <div className="row">
+                <h6 className="col-6"> User's overal allowance</h6>
+                <div className="col-6">
+                  <div className="row">
+                    <div
+                      style={{
+                        visibility: userOverallAllowanceLoading
+                          ? "visible"
+                          : "hidden",
+                      }}
+                      className="offset-3 col-3 d-flex"
+                    >
+                      <div style={{ marginRight: 10 }}>Querying...</div>
+                      <Spinner animation="border" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                      </Spinner>
+                    </div>
+                    <button
+                      onClick={() => queryInvestiagetUserOverallAllowance()}
+                      className="col-6 btn btn-primary"
+                    >
+                      Search
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <Card>
+                <Card.Body className="table-overflow ">
+                  <Table striped bordered hover>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+
+                        <th>BlockHash</th>
+                        <th>BlockNumber</th>
+                        <th>Owner</th>
+                        <th>Spender</th>
+                        <th>Value</th>
+                        <th>EventSignature</th>
+                        <th>LogIndex</th>
+                        <th>Removed</th>
+                        <th>TransactionHash</th>
+                        <th>TransactionIndex</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* {event.args[3]} */}
+                      {userOverallAllowance.length > 0 ? (
+                        userOverallAllowance.map((event, index) => (
+                          <tr key={event.blockHash + index}>
+                            <td>{index}</td>
+
+                            <td>{event.blockHash}</td>
+                            <td>{event.blockNumber}</td>
+                            <td>{event.args[0]}</td>
+                            <td>{event.args[1]}</td>
+                            <td>
+                              {ethers.utils.formatEther(event.args[2])}
+                              {contractSymbol}
+                            </td>
+                            <td>{event.eventSignature}</td>
+                            <td>{event.logIndex}</td>
+                            <td>{event.removed}</td>
+                            <td>{event.transactionHash}</td>
+                            <td>{event.transactionIndex}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td>no</td>
+
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                        </tr>
+                      )}
+                      <tr></tr>
+                    </tbody>
+                  </Table>
+                </Card.Body>
+              </Card>
             </div>
           </div>
-          <Card>
-            <Card.Body className="table-overflow ">
-              <Table striped bordered hover>
-                <thead>
-                  <tr>
-                    <th>#</th>
+        </>
+      ) : (
+        <h4>
+          Please query the ERC20 contract you want to interact in the{" "}
+          <i>Insert contract address form</i>
+        </h4>
+      )}
 
-                    <th>BlockHash</th>
-                    <th>BlockNumber</th>
-                    <th>Owner</th>
-                    <th>Spender</th>
-                    <th>Value</th>
-                    <th>EventSignature</th>
-                    <th>LogIndex</th>
-                    <th>Removed</th>
-                    <th>TransactionHash</th>
-                    <th>TransactionIndex</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {contractApprovedEvents.length > 0 ? (
-                    contractApprovedEvents.map((event, index) => (
-                      <tr key={event.blockHash + index}>
-                        <td>{index}</td>
-
-                        <td>{event.blockHash}</td>
-                        <td>{event.blockNumber}</td>
-                        <td>{event.args[0]}</td>
-                        <td>{event.args[1]}</td>
-                        <td>
-                          {ethers.utils.formatEther(event.args[2])}
-                          {contractSymbol}
-                        </td>
-                        <td>{event.eventSignature}</td>
-                        <td>{event.logIndex}</td>
-                        <td>{event.removed}</td>
-                        <td>{event.transactionHash}</td>
-                        <td>{event.transactionIndex}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td>no</td>
-
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                    </tr>
-                  )}
-                  <tr></tr>
-                </tbody>
-              </Table>
-            </Card.Body>
-          </Card>
-        </div>
-        <div className="row mt-3">
-          <div className="row">
-            <h6 className="col-6">
-              {" "}
-              User's (
-              {currentSigner.length > 20
-                ? currentSigner.substr(0, 19) + "..."
-                : currentSigner}
-              ) Events Approve &#x26; Transfer
-            </h6>
-            <div className="col-6">
-              <div className="row">
-                <div
-                  style={{
-                    visibility: usersContractApprovedEventsLoading
-                      ? "visible"
-                      : "hidden",
-                  }}
-                  className="offset-3 col-3 d-flex"
-                >
-                  <div style={{ marginRight: 10 }}>Querying...</div>
-                  <Spinner animation="border" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </Spinner>
-                </div>
-                <button
-                  onClick={() =>
-                    queryInvestigateUsersTransferApproveBlockchain()
-                  }
-                  className="btn btn-primary col-6"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
-          </div>
-          <Card>
-            <Card.Body className="table-overflow ">
-              <Table striped bordered hover>
-                <thead>
-                  <tr>
-                    <th>#</th>
-
-                    <th>BlockHash</th>
-                    <th>BlockNumber</th>
-                    <th>Owner</th>
-                    <th>Spender</th>
-                    <th>Value</th>
-                    <th>EventSignature</th>
-                    <th>LogIndex</th>
-                    <th>Removed</th>
-                    <th>TransactionHash</th>
-                    <th>TransactionIndex</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* {event.args[3]} */}
-                  {usersContractApprovedEvents.length > 0 ? (
-                    usersContractApprovedEvents.map((event, index) => (
-                      <tr key={event.blockHash + index}>
-                        <td>{index}</td>
-
-                        <td>{event.blockHash}</td>
-                        <td>{event.blockNumber}</td>
-                        <td>{event.args[0]}</td>
-                        <td>{event.args[1]}</td>
-                        <td>
-                          {ethers.utils.formatEther(event.args[2])}
-                          {contractSymbol}
-                        </td>
-                        <td>{event.eventSignature}</td>
-                        <td>{event.logIndex}</td>
-                        <td>{event.removed}</td>
-                        <td>{event.transactionHash}</td>
-                        <td>{event.transactionIndex}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td>no</td>
-
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                    </tr>
-                  )}
-                  <tr></tr>
-                </tbody>
-              </Table>
-            </Card.Body>
-          </Card>
-        </div>
-        <div className="row mt-3">
-          <div className="row">
-            <h6 className="col-6"> User's overal allowance</h6>
-            <div className="col-6">
-              <div className="row">
-                <div
-                  style={{
-                    visibility: userOverallAllowanceLoading
-                      ? "visible"
-                      : "hidden",
-                  }}
-                  className="offset-3 col-3 d-flex"
-                >
-                  <div style={{ marginRight: 10 }}>Querying...</div>
-                  <Spinner animation="border" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </Spinner>
-                </div>
-                <button
-                  onClick={() => queryInvestiagetUserOverallAllowance()}
-                  className="col-6 btn btn-primary"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <Card>
-            <Card.Body className="table-overflow ">
-              <Table striped bordered hover>
-                <thead>
-                  <tr>
-                    <th>#</th>
-
-                    <th>BlockHash</th>
-                    <th>BlockNumber</th>
-                    <th>Owner</th>
-                    <th>Spender</th>
-                    <th>Value</th>
-                    <th>EventSignature</th>
-                    <th>LogIndex</th>
-                    <th>Removed</th>
-                    <th>TransactionHash</th>
-                    <th>TransactionIndex</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* {event.args[3]} */}
-                  {userOverallAllowance.length > 0 ? (
-                    userOverallAllowance.map((event, index) => (
-                      <tr key={event.blockHash + index}>
-                        <td>{index}</td>
-
-                        <td>{event.blockHash}</td>
-                        <td>{event.blockNumber}</td>
-                        <td>{event.args[0]}</td>
-                        <td>{event.args[1]}</td>
-                        <td>
-                          {ethers.utils.formatEther(event.args[2])}
-                          {contractSymbol}
-                        </td>
-                        <td>{event.eventSignature}</td>
-                        <td>{event.logIndex}</td>
-                        <td>{event.removed}</td>
-                        <td>{event.transactionHash}</td>
-                        <td>{event.transactionIndex}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td>no</td>
-
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                    </tr>
-                  )}
-                  <tr></tr>
-                </tbody>
-              </Table>
-            </Card.Body>
-          </Card>
-        </div>
-      </div>
       <ResultToaster
         result={toastData.result}
         show={toastData.show}
