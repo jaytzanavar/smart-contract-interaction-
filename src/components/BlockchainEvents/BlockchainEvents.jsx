@@ -6,7 +6,6 @@ import Spinner from "react-bootstrap/Spinner";
 import "./BlockchainEvents.css";
 
 export function BlockchainEvents({ contractProps }) {
-  console.log("Blockchain events has started...");
   const [contractApprovedEvents, setContractApprovedEvents] = useState([]);
   const [blockTimeStamp, seBlockTimeStamp] = useState([{}]);
   const [contractApprovedEventsLoading, setLoadingContractApprovedEvents] =
@@ -40,24 +39,18 @@ export function BlockchainEvents({ contractProps }) {
         setLatestBlockNumber(res);
       });
     }
-  }, [provider]);
-
-  useEffect(() => {
     if (!!signer) {
       signer.getAddress().then((res) => {
         setCurrentSigner(res);
       });
     }
-  }, [signer]);
-
-  useEffect(() => {
     if (!!contract) {
       contract.symbol().then((res) => {
         setContractSymbol(res);
       });
       setContractAddr(contract.address);
     }
-  }, [contract]);
+  }, [provider, signer, contract]);
 
   const investigateTransferApproveBlockchain = async () => {
     if (
@@ -217,14 +210,11 @@ export function BlockchainEvents({ contractProps }) {
   }
 
   const getDateFromBlockNumber = async (blocknum) => {
-    console.log(blocknum);
     let timestamp = await provider.getBlock(blocknum);
-    console.log(timestamp);
     seBlockTimeStamp([
       ...blockTimeStamp,
       { blocknum: blocknum, timest: timestamp },
     ]);
-    console.log(blockTimeStamp);
   };
 
   return (

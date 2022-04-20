@@ -2,45 +2,33 @@ import { useEffect, useState } from "react";
 import Offcanvas from "react-bootstrap/Offcanvas";
 import "./BlockchainLiveUpdate.css";
 import blockchainImg from "../../assets/blockchain.png";
+import { BlockchainWsEventCard } from "../BlockchainWsEventCard/BlockchainWsEventCard";
 
-function openWSProvider(ethers, contractAddr, abi) {
-  let wsProvider;
-  let contractAddress;
-
-  if (!!contractAddr === false) {
-    contractAddress = localStorage?.getItem("contract");
-  }
-
-  if (ethers && !!contractAddress) {
-    wsProvider = new ethers.providers.WebSocketProvider(
-      "wss://rpc-mumbai.maticvigil.com/ws/v1/24fd79d31c2188c409ab1b82407fbe0bcba657bd"
-    );
-
-    let contract = new ethers.Contract(contractAddress, abi, wsProvider);
-    console.log(contract);
-    contract.on("*", (args) => {
-      console.log(args);
-    });
-    let filter = {
-      topics: [ethers.utils.id("Transfer(address,address,uint256)")],
-    };
-    wsProvider.on(filter, (log) => {
-      console.log({
-        log: log,
-      });
-    });
-  }
-}
-
-export function BlockchainLiveUpdate({ ethers, contractAddr, abi }) {
+export function BlockchainLiveUpdate({ networkInfo, event }) {
+  console.log("open panel ws");
   const [show, setShow] = useState(false);
+  const [eventArrays, setEventArrays] = useState([]);
+  useEffect(() => {
+    if (show) {
+    }
+    return () => {
+      // console.log("unmounting", show);
+      // if (!!ws) {
+      //   ws.provider._websocket.close();
+      //   ws.contract.off("*", (args) => {
+      //     console.log("unsubscribed from contract", args);
+      //   });
+      //   console.log("terminating ws...");
+      // }
+    };
+  }, [show]);
 
   useEffect(() => {
-    console.log("use EFFECT TRIGG", show);
-    if (show) {
-      openWSProvider(ethers, contractAddr, abi);
+    if (event.data != null) {
+      console.log("HAVE CAUGHT A LIVE EVENT ===>", event);
+      setEventArrays((prevState) => [...prevState, event]);
     }
-  }, [show, ethers, contractAddr, abi]);
+  }, [event]);
 
   const handleClose = () => setShow(false);
   const handleShow = () => setShow(true);
@@ -51,11 +39,17 @@ export function BlockchainLiveUpdate({ ethers, contractAddr, abi }) {
 
       <Offcanvas show={show} onHide={handleClose}>
         <Offcanvas.Header closeButton>
-          <Offcanvas.Title>Offcanvas</Offcanvas.Title>
+          <Offcanvas.Title>
+            Live Transaction Data from {networkInfo.name} ({networkInfo.chainId}
+            )
+          </Offcanvas.Title>
         </Offcanvas.Header>
         <Offcanvas.Body>
-          Some text as placeholder. In real life you can have the elements you
-          have chosen. Like, text, images, lists, etc.
+          {eventArrays.length > 0
+            ? eventArrays.map((event, index) => (
+                <BlockchainWsEventCard key={index} />
+              ))
+            : null}
         </Offcanvas.Body>
       </Offcanvas>
     </>

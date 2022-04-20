@@ -45,10 +45,19 @@ function App() {
   const [showClipboard, setShowClipboard] = useState(false);
   const [active, setActive] = useState(null);
   const [account, setAccount] = useState(null);
+  const [appSigner, setSigner] = useState("");
   const [provider, setProvider] = useState(null);
   const [contractProps, setContractProps] = useState({ contractInfo: [] });
   const [contractInfo, setContractInfo] = useState([]);
   const [contractAddr, setContractAddr] = useState("");
+  const [networkInfo, setNetworkInfo] = useState({
+    name: "",
+    chainId: "",
+  });
+  const [liveEvent, setLiveEvent] = useState({
+    data: null,
+    signerContract: false,
+  });
 
   const [toastData, setToasterData] = useState({
     show: false,
@@ -58,6 +67,61 @@ function App() {
 
   // TODO check with metamask ethereum etc
   const { ethereum } = window;
+
+  useEffect(() => {
+    const openBlockWsProvider = async (ethers, abi) => {
+      let wsProvider;
+      const iface = new ethers.utils.Interface(BUSD.abi);
+      const contractAddress = localStorage?.getItem("contract");
+
+      if (ethers && contractAddress) {
+        wsProvider = new ethers.providers.WebSocketProvider(
+          "wss://rpc-mumbai.maticvigil.com/ws/v1/24fd79d31c2188c409ab1b82407fbe0bcba657bd"
+        );
+
+        wsProvider._networkPromise.then((res) => {
+          setNetworkInfo({
+            name: res.name,
+            chainId: res.chainId,
+          });
+        });
+
+        let wsContract = new ethers.Contract(contractAddress, abi, wsProvider);
+
+        let generalfilterContract = {
+          topics: [
+            [
+              ethers.utils.id("Approval(address,address,uint256)"),
+              ethers.utils.id("Transfer(address,address,uint256)"),
+            ],
+          ],
+        };
+
+        wsContract.on(generalfilterContract, (log) => {
+          const data = log.data;
+          const topics = log.topics;
+          const logDescription = iface.parseLog({ data, topics });
+          const logDescriptionFormat = JSON.parse(
+            JSON.stringify(logDescription)
+          );
+          if (logDescriptionFormat.args.includes(appSigner)) {
+            console.log("RETURN OURS");
+            setLiveEvent({ data: logDescriptionFormat, signerContract: true });
+          } else {
+            console.log("RETURN OTHERS");
+            setLiveEvent({ data: logDescriptionFormat, signerContract: false });
+          }
+        });
+
+        return { provider: wsProvider };
+      }
+    };
+
+    if (!!ethers) {
+      openBlockWsProvider(ethers, BUSD.abi);
+    }
+    console.log(appSigner);
+  }, [appSigner]);
 
   // keep user connectedF
   useEffect(() => {
@@ -79,7 +143,7 @@ function App() {
                     setProvider(tempProvider);
                     const tempSigner = await tempProvider.getSigner();
                     const tempSignerAddress = await tempSigner.getAddress();
-
+                    setSigner(tempSignerAddress);
                     const setTempContractAddress =
                       localStorage.getItem("contract");
                     let tempContract = new ethers.Contract(
@@ -106,6 +170,7 @@ function App() {
                       accountAddress: tempSigner,
                       balance: balance,
                     });
+
                     setContractInfo(newContractInfos);
                     setContractProps({
                       provider: tempProvider,
@@ -132,8 +197,34 @@ function App() {
         }
       }
     };
+
     connectWalletOnPageLoad();
+    // return () => {
+    //   console.log("unmounting main app");
+    //   if (!!ws) {
+    //     ws.provider._websocket.close();
+    //     ws.contract.off("*", (args) => {
+    //       console.log("unsubscribed from contract", args);
+    //     });
+    //     console.log("terminating ws...");
+    //   }
+    // };
   }, [ethereum]);
+
+  useEffect(() => {
+    if (active) {
+      let autoRefreshInterval;
+
+      if (!!localStorage?.getItem("contract")) {
+        // autoRefreshInterval = setInterval(async () => {
+        //   window.location.reload();
+        // }, 60000);
+      }
+      return () => {
+        clearInterval(autoRefreshInterval);
+      };
+    }
+  }, [active]);
 
   const refreshData = (disconnect = false) => {
     if (localStorage?.getItem("contract") !== undefined) {
@@ -156,21 +247,6 @@ function App() {
       }
     }
   };
-
-  useEffect(() => {
-    if (active) {
-      let autoRefreshInterval;
-
-      if (!!localStorage?.getItem("contract")) {
-        // autoRefreshInterval = setInterval(async () => {
-        //   window.location.reload();
-        // }, 60000);
-      }
-      return () => {
-        clearInterval(autoRefreshInterval);
-      };
-    }
-  }, [active]);
 
   const accountChangeHandler = (newAccount) => {
     setAccount(newAccount);
@@ -283,9 +359,8 @@ function App() {
             <Navbar.Brand>
               <div className="d-flex">
                 <BlockchainLiveUpdate
-                  ethers={ethers}
-                  contractAdd={contractAddr}
-                  abi={BUSD.abi}
+                  networkInfo={networkInfo}
+                  event={liveEvent}
                 />
                 <div
                   style={{ marginLeft: 10 }}
