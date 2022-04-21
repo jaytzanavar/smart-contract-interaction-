@@ -383,14 +383,14 @@ export function SmartContractInteractions({ contractProps, refresh }) {
                   </div>
                 </div>
                 <div className="row">
-                  <div className="col-12">
+                  <div className="col-6">
                     <Button
                       disabled={contractInfo.length === 0}
                       className="mt-2 mb-2 align-self-center col-md-4"
                       variant="primary"
                       type="submit"
                     >
-                      Grant Approval to value {values.valueToApprove}
+                      Grant Approval
                     </Button>
                   </div>
                 </div>
@@ -603,7 +603,7 @@ export function SmartContractInteractions({ contractProps, refresh }) {
                       variant="primary"
                       type="submit"
                     >
-                      Burn
+                      Burn Tokens
                     </Button>
                   </div>
                 </div>

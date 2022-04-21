@@ -19,8 +19,9 @@ import { WalletTable } from "./components/WalletTable/WalletTable";
 import TransferChainTokenToAccount from "./components/TransferChainTokenToAccount/TransferChainTokenToAccount";
 import SmartContractInteractions from "./components/SmartContractInteractions/SmartContractInteractions";
 import { ResultToaster } from "./components/ResultToaster/ResultToaster.jsx";
-import { BlockchainEvents } from "./components/BlockchainEvents/BlockchainEvents";
-import { BlockchainLiveUpdate } from "./components/BlockchainLiveUpdates/BlockchainLiveUpdate";
+import { BlockchainEvents } from "./components/BlockchainEvents/BlockchainEvents.jsx";
+import { BlockchainLiveUpdate } from "./components/BlockchainLiveUpdates/BlockchainLiveUpdate.jsx";
+import { EventToaster } from "./components/EventToaster/EventToaster";
 
 export default function DappWrapper() {
   return <App />;
@@ -54,7 +55,9 @@ function App() {
     name: "",
     chainId: "",
   });
+
   const [liveEvent, setLiveEvent] = useState({
+    id: 0,
     data: null,
     signerContract: false,
   });
@@ -64,13 +67,115 @@ function App() {
     result: "",
     variant: "",
   });
+  const [eventToastData, setEventToaster] = useState({
+    show: false,
+    result: null,
+    variant: "",
+  });
 
   // TODO check with metamask ethereum etc
   const { ethereum } = window;
 
+  // useEffect(() => {
+  //   let wsProvider;
+  //   let wsContract;
+  //   let generalfilterContract;
+  //   console.log("APP SIGNER CHANGED", appSigner);
+  //   console.log("Event toast changed", eventToastData);
+  //   const openBlockWsProvider = async (ethers, abi, signer) => {
+  //     const iface = new ethers.utils.Interface(BUSD.abi);
+  //     const contractAddress = localStorage?.getItem("contract");
+
+  //     if (ethers && contractAddress) {
+  //       wsProvider = new ethers.providers.WebSocketProvider(
+  //         "wss://rpc-mumbai.maticvigil.com/ws/v1/24fd79d31c2188c409ab1b82407fbe0bcba657bd"
+  //       );
+
+  //       // sets the network stuff !
+  //       console.log("signer 2", appSigner);
+  //       wsProvider._networkPromise.then((res) => {
+  //         setNetworkInfo({
+  //           name: res.name,
+  //           chainId: res.chainId,
+  //         });
+  //       });
+  //       wsContract = new ethers.Contract(contractAddress, abi, wsProvider);
+
+  //       generalfilterContract = {
+  //         topics: [
+  //           [
+  //             ethers.utils.id("Approval(address,address,uint256)"),
+  //             ethers.utils.id("Transfer(address,address,uint256)"),
+  //           ],
+  //         ],
+  //       };
+
+  //       console.log("pre -signer 3", { appSigner, signer });
+  //       wsContract.on(generalfilterContract, (log) => {
+  //         const data = log.data;
+  //         const topics = log.topics;
+  //         const logDescription = iface.parseLog({ data, topics });
+  //         const logDescriptionFormat = JSON.parse(
+  //           JSON.stringify(logDescription)
+  //         );
+  //         console.log("WEB SOCKET RECEIVE DATA", logDescriptionFormat);
+  //         console.log("WEB SOCKET RECEIVE DATA", logDescriptionFormat.args);
+
+  //         console.log("signer", logDescriptionFormat.args.includes(appSigner));
+  //         if (logDescriptionFormat.args.includes(appSigner)) {
+  //           console.log("RETURN OURS");
+  //           setEventToaster({
+  //             show: true,
+  //             result: logDescriptionFormat,
+  //             variant: "Primary",
+  //           });
+  //           setTimeout(() => {
+  //             setEventToaster({
+  //               show: false,
+
+  //             });
+  //           }, 4500);
+  //           setLiveEvent({
+  //             data: logDescriptionFormat,
+  //             signerContract: true,
+  //           });
+  //         } else {
+  //           console.log("RETURN OTHERS");
+
+  //           setEventToaster({
+  //             show: true,
+  //             result: logDescriptionFormat,
+  //             variant: "Secondary",
+  //           });
+  //           setTimeout(() => {
+  //             setEventToaster({
+  //               show: false,
+  //               ...eventToastData,
+  //             });
+  //           }, 2500);
+  //           setLiveEvent({
+  //             data: logDescriptionFormat,
+  //             signerContract: false,
+  //           });
+  //         }
+  //       });
+  //     }
+  //   };
+
+  //   if (!!ethers) {
+  //     openBlockWsProvider(ethers, BUSD.abi, appSigner);
+  //   }
+
+  //   return () => {
+  //     wsContract.off(generalfilterContract);
+  //   };
+  // }, [appSigner, eventToastData]);
+
   useEffect(() => {
-    const openBlockWsProvider = async (ethers, abi) => {
-      let wsProvider;
+    let wsProvider;
+    let wsContract;
+    let generalfilterContract;
+    const openBlockWsProvider = async (ethers, abi, signer) => {
       const iface = new ethers.utils.Interface(BUSD.abi);
       const contractAddress = localStorage?.getItem("contract");
 
@@ -79,16 +184,17 @@ function App() {
           "wss://rpc-mumbai.maticvigil.com/ws/v1/24fd79d31c2188c409ab1b82407fbe0bcba657bd"
         );
 
+        // sets the network stuff !
+        console.log("signer 2", appSigner);
         wsProvider._networkPromise.then((res) => {
           setNetworkInfo({
             name: res.name,
             chainId: res.chainId,
           });
         });
+        wsContract = new ethers.Contract(contractAddress, abi, wsProvider);
 
-        let wsContract = new ethers.Contract(contractAddress, abi, wsProvider);
-
-        let generalfilterContract = {
+        generalfilterContract = {
           topics: [
             [
               ethers.utils.id("Approval(address,address,uint256)"),
@@ -97,6 +203,7 @@ function App() {
           ],
         };
 
+        console.log("pre -signer 3", { appSigner, signer });
         wsContract.on(generalfilterContract, (log) => {
           const data = log.data;
           const topics = log.topics;
@@ -104,24 +211,58 @@ function App() {
           const logDescriptionFormat = JSON.parse(
             JSON.stringify(logDescription)
           );
+          console.log("WEB SOCKET RECEIVE DATA", logDescriptionFormat);
+          console.log("WEB SOCKET RECEIVE DATA", logDescriptionFormat.args);
+
+          console.log("signer", logDescriptionFormat.args.includes(appSigner));
           if (logDescriptionFormat.args.includes(appSigner)) {
             console.log("RETURN OURS");
-            setLiveEvent({ data: logDescriptionFormat, signerContract: true });
+            setEventToaster({
+              show: true,
+              result: logDescriptionFormat,
+              variant: "Primary",
+            });
+            setTimeout(() => {
+              setEventToaster({
+                show: false,
+              });
+            }, 4500);
+
+            setLiveEvent({
+              data: logDescriptionFormat,
+              signerContract: true,
+            });
           } else {
             console.log("RETURN OTHERS");
-            setLiveEvent({ data: logDescriptionFormat, signerContract: false });
+
+            setEventToaster({
+              show: true,
+              result: logDescriptionFormat,
+              variant: "Secondary",
+            });
+            setTimeout(() => {
+              setEventToaster({
+                show: false,
+                ...eventToastData,
+              });
+            }, 2500);
+            setLiveEvent({
+              data: logDescriptionFormat,
+              signerContract: false,
+            });
           }
         });
-
-        return { provider: wsProvider };
       }
     };
 
-    if (!!ethers) {
-      openBlockWsProvider(ethers, BUSD.abi);
+    if (!!ethers && appSigner !== "") {
+      openBlockWsProvider(ethers, BUSD.abi, appSigner);
     }
-    console.log(appSigner);
-  }, [appSigner]);
+
+    return () => {
+      if (!!generalfilterContract) wsContract.off(generalfilterContract);
+    };
+  }, [appSigner, active, eventToastData]);
 
   // keep user connectedF
   useEffect(() => {
@@ -143,7 +284,10 @@ function App() {
                     setProvider(tempProvider);
                     const tempSigner = await tempProvider.getSigner();
                     const tempSignerAddress = await tempSigner.getAddress();
-                    setSigner(tempSignerAddress);
+                    if (appSigner !== tempSignerAddress) {
+                      setSigner(tempSignerAddress);
+                    }
+
                     const setTempContractAddress =
                       localStorage.getItem("contract");
                     let tempContract = new ethers.Contract(
@@ -209,7 +353,7 @@ function App() {
     //     console.log("terminating ws...");
     //   }
     // };
-  }, [ethereum]);
+  }, [ethereum, appSigner]);
 
   useEffect(() => {
     if (active) {
@@ -358,10 +502,13 @@ function App() {
           <Container>
             <Navbar.Brand>
               <div className="d-flex">
-                <BlockchainLiveUpdate
-                  networkInfo={networkInfo}
-                  event={liveEvent}
-                />
+                {!!ethers ? (
+                  <BlockchainLiveUpdate
+                    event={liveEvent}
+                    networkInfo={networkInfo}
+                    ethers={ethers}
+                  />
+                ) : null}
                 <div
                   style={{ marginLeft: 10 }}
                   className="d-flex flex-collumn align-items-center"
@@ -549,6 +696,16 @@ function App() {
         ) : (
           <h2 className="text-center">Wallet not connected</h2>
         )}
+        {eventToastData.result !== null ? (
+          <EventToaster
+            result={eventToastData.result}
+            show={eventToastData.show}
+            variant={eventToastData.variant}
+            setData={setEventToaster}
+            ethers={ethers}
+          />
+        ) : null}
+
         <ResultToaster
           result={toastData.result}
           show={toastData.show}

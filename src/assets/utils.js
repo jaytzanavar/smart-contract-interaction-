@@ -130,3 +130,52 @@ export const TOKENS_BY_NETWORK = {
     },
   ],
 };
+
+export const checkTypeOfTransaction = (args, type) => {
+  if (args) {
+    if (type === "Approval") {
+      return "Approval of spending";
+    } else {
+      if (
+        args[0] === "0x0000000000000000000000000000000000000000" &&
+        args[1] !== "0x0000000000000000000000000000000000000000"
+      ) {
+        return `Mint`;
+      } else if (
+        args[0] !== "0x0000000000000000000000000000000000000000" &&
+        args[1] === "0x0000000000000000000000000000000000000000"
+      ) {
+        return `Burn`;
+      }
+      return "Transfer";
+    }
+  }
+};
+
+export const checkTypeOfTransactionText = (args, type) => {
+  if (args) {
+    if (type === "Approval") {
+      return "Approval of spending";
+    } else {
+      if (
+        args[0] === "0x0000000000000000000000000000000000000000" &&
+        args[1] !== "0x0000000000000000000000000000000000000000"
+      ) {
+        return `Account ${args[1]} Minted`;
+      } else if (
+        args[0] !== "0x0000000000000000000000000000000000000000" &&
+        args[1] === "0x0000000000000000000000000000000000000000"
+      ) {
+        return `Account ${args[0]} Burned`;
+      }
+      return "Transfered";
+    }
+  }
+};
+
+export const checkBigNumber = (ethers, args) => {
+  console.log(ethers, args);
+  if (args && ethers) {
+    return `${ethers.utils.formatEther(args[2].hex)}  BUSD`;
+  }
+};

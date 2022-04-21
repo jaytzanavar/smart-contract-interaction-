@@ -1,18 +1,39 @@
 import Card from "react-bootstrap/Card";
+import {
+  checkBigNumber,
+  checkTypeOfTransaction,
+  checkTypeOfTransactionText,
+} from "src/assets/utils";
+import moment from "moment";
 
-export function BlockchainWsEventCard({}) {
+export function BlockchainWsEventCard({ data, ethers }) {
+  console.log(data, ethers);
+  const getTimeNow = () => {
+    console.log(moment(new Date(Date.now())).format("DD/MM/YYYY hh:mm A"));
+    return moment(new Date(Date.now())).format("DD/MM/YYYY  hh:mm A");
+  };
+
   return (
     <>
-      <Card border="dark" style={{ width: "auto" }}>
-        <Card.Header>Dark card</Card.Header>
-        <Card.Body>
-          <Card.Title>Primary Card Title</Card.Title>
-          <Card.Text>
-            Some quick example text to build on the card title and make up the
-            bulk of the card's content.
-          </Card.Text>
-        </Card.Body>
-      </Card>
+      {!!data ? (
+        <Card
+          border={data.data.signerContract ? "primary" : "dark"}
+          style={{ width: "auto", marginBottom: 15 }}
+        >
+          <Card.Header>
+            <div className="d-flex justify-content-between">
+              <div>{data.data.name}</div>
+              <div style={{ fontSize: 12, paddingTop: 6 }}>{getTimeNow()}</div>
+            </div>
+          </Card.Header>
+          <Card.Body>
+            <Card.Title>{checkTypeOfTransaction(data.data.args)}</Card.Title>
+            <Card.Text>{`${checkTypeOfTransactionText(
+              data.data.args
+            )}  ${checkBigNumber(ethers, data.data.args)}`}</Card.Text>
+          </Card.Body>
+        </Card>
+      ) : null}
     </>
   );
 }

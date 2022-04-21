@@ -93,7 +93,7 @@ export function Mint({ contract, provider, contractInfo, refresh }) {
                       variant="primary"
                       type="submit"
                     >
-                      Mint
+                      Mint Tokens
                     </Button>
                   </div>
                 </div>

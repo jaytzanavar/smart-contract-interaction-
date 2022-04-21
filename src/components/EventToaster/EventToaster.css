@@ -1,0 +1,7 @@
+.event-toaster-style {
+  position: fixed;
+  top: 7px;
+  right: 6px;
+  height: 125px;
+  z-index: 1026;
+}
